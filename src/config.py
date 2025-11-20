@@ -4,8 +4,6 @@ import os
 
 load_dotenv()
 
-TOKEN = os.getenv('TOKEN')
-
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
 
