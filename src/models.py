@@ -2,6 +2,8 @@ from typing import Annotated
 
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 from sqlalchemy import (
+    TIMESTAMP,
+    Boolean,
     Integer, 
     DateTime, 
     ForeignKeyConstraint, 
@@ -10,7 +12,9 @@ from sqlalchemy import (
     String, 
     UniqueConstraint, 
     Text, 
-    DECIMAL
+    DECIMAL,
+    func,
+    text
 )
 
 from typing import List, Optional
@@ -87,11 +91,32 @@ class ManufacturerEnum(Enum):
 # Статусы заказа
 class OrderStatusEnum(Enum):
     PROCESSING = "В обработке"
-    PENDING = "Ожидание оплаты"
-    PAID = "Оплачен"
     SHIPPED = "Отправлен"
     DELIVERED = "Доставлен"
     CANCELLED = "Отменен"
+
+# Роли пользователей
+class UserRoleEnum(Enum):
+    CUSTOMER = "Покупатель"
+    MANAGER = "Менеджер"
+    ADMIN = "Администратор"
+
+# Статус аккаунта пользователя
+class UserStatusEnum(Enum):
+    ACTIVE = "Активный"
+    SUSPENDED = "Заблокирован"
+    PENDING_VERIFICATION = "Ожидает верификации"
+
+# Типы адресов пользователя
+class AddressTypeEnum(Enum):
+    EXACT = "Точный"
+    PICKUP = "Пункт выдачи"
+
+# Типы оплаты
+class PaymentMethodEnum(Enum):
+    CARD = "Онлайн"
+    CARD_ON_RESIEVE = "Картой при получении"
+    CASH = "Наличные"
 
 # Добавление метаданных для работы alembic
 metadata = MetaData()
@@ -201,3 +226,94 @@ class CarTrim(Base):
     
     # Связь с таблицей автомобилей
     cars: Mapped[List["Car"]] = relationship("Car", back_populates="trim")
+
+# Таблица пользователей
+class User(Base):
+    __tablename__ = "users"
+    
+    user_id: Mapped[intpk]
+    email: Mapped[str] = mapped_column(String(255), unique=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    first_name: Mapped[str] = mapped_column(String(50)) # Имя
+    last_name: Mapped[str] = mapped_column(String(50)) # Фамилия
+    middle_name: Mapped[str] = mapped_column(String(50), nullable=True) # Отвечство
+    phone_number: Mapped[str] = mapped_column(String(20))
+    
+    role: Mapped[UserRoleEnum] = mapped_column(String(20), default=UserRoleEnum.CUSTOMER)
+    status: Mapped[UserStatusEnum] = mapped_column(String(20), default=UserStatusEnum.PENDING_VERIFICATION)
+    
+    registration_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    phone_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+        
+    # Связи
+    addresses: Mapped[list["UserAddress"]] = relationship("UserAddress", back_populates="user")
+    orders: Mapped[list["Order"]] = relationship("Order", back_populates="user")
+
+# Адреса пользователей
+class UserAddress(Base):
+    __tablename__ = "user_addresses"
+    
+    address_id: Mapped[intpk]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
+    address_type: Mapped[AddressTypeEnum] = mapped_column(String(30))
+    
+    # Адресные данные
+    postal_code: Mapped[str] = mapped_column(String(20), nullable=True)
+    country: Mapped[str] = mapped_column(String(50))
+    city: Mapped[str] = mapped_column(String(50))
+    street: Mapped[str] = mapped_column(String(100))
+    house: Mapped[str] = mapped_column(String(10))
+    apartment: Mapped[str] = mapped_column(String(10), nullable=True)
+    
+    # Контактная информация для доставки
+    recipient_name: Mapped[str] = mapped_column(String(100))
+    recipient_phone: Mapped[str] = mapped_column(String(20))
+    
+    # Флаги
+    is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Связи
+    user: Mapped["User"] = relationship("User", back_populates="addresses")
+    orders: Mapped[list["Order"]] = relationship("Order", back_populates="shipping_address")
+
+# Таблица заказов пользователей
+class Order(Base):
+    __tablename__ = "orders"
+    
+    order_id: Mapped[intpk]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
+    shipping_address_id: Mapped[int] = mapped_column(ForeignKey("user_addresses.address_id"))
+    payment_method: Mapped[PaymentMethodEnum] = mapped_column(String(20))
+
+    is_paid: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[OrderStatusEnum] = mapped_column(String(20), default=OrderStatusEnum.PROCESSING)
+    order_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    status_updated: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    
+    shipping_cost: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
+    discount: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
+    
+    tracking_number: Mapped[str] = mapped_column(String(100), nullable=True)
+    estimated_delivery: Mapped[datetime] = mapped_column(TIMESTAMP, nullable=True)
+    
+    customer_notes: Mapped[str] = mapped_column(Text, nullable=True)
+    admin_notes: Mapped[str] = mapped_column(Text, nullable=True)
+    
+    user: Mapped["User"] = relationship("User", back_populates="orders")
+    shipping_address: Mapped["UserAddress"] = relationship("UserAddress", back_populates="orders")
+    order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+# Таблица заказанных предметов
+class OrderItem(Base):
+    __tablename__ = "order_items"
+    
+    order_item_id: Mapped[intpk]
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.order_id"))
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.part_id"))
+    
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    
+    order: Mapped["Order"] = relationship("Order", back_populates="order_items")
+    part: Mapped["Part"] = relationship("Part", back_populates="order_items")
