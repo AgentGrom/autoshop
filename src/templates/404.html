@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Страница не найдена – AutoShop</title>
+    <!-- Основные стили (общие) -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <!-- Специфичные стили для 404 -->
+    <link rel="stylesheet" href="{{ url_for('static', path='css/404.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                </div>
+                <div class="nav-right">
+                    <a href="/login">Вход</a>
+                    <a href="/register">Регистрация</a>
+                    <a href="/cart">Корзина <span class="cart-count">(0)</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Блок ошибки -->
+    <div class="container">
+        <div class="error-container">
+            <div class="car-icon">🚗</div>
+            <h1 class="error-code">404</h1>
+            <p class="error-message">Страница не найдена</p>
+            <p class="error-description">
+                Извините, страница, которую вы ищете, не существует или была перемещена. 
+                Возможно, вы ошиблись при вводе адреса или перешли по устаревшей ссылке.
+            </p>
+            <a href="/" class="back-home">Вернуться на главную</a>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2024 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

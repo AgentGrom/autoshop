@@ -1,0 +1,53 @@
+.error-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 60px 20px;
+    min-height: 80vh;
+    gap: 20px;
+}
+
+.error-code {
+    font-size: 120px;
+    font-weight: bold;
+    color: #1a2980;
+    margin: 0;
+    line-height: 1;
+}
+
+.error-message {
+    font-size: 24px;
+    color: #333;
+    margin: 0;
+}
+
+.error-description {
+    font-size: 16px;
+    color: #666;
+    max-width: 600px;
+    margin: 10px auto 30px;
+    line-height: 1.6;
+}
+
+.back-home {
+    display: inline-block;
+    padding: 12px 28px;
+    background: #0066cc;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    font-size: 16px;
+    transition: background 0.3s;
+}
+
+.back-home:hover {
+    background: #0052a3;
+}
+
+.car-icon {
+    font-size: 60px;
+    margin-bottom: 10px;
+}

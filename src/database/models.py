@@ -5,16 +5,12 @@ from sqlalchemy import (
     TIMESTAMP,
     Boolean,
     Integer, 
-    DateTime, 
-    ForeignKeyConstraint, 
     MetaData, 
     ForeignKey, 
-    String, 
-    UniqueConstraint, 
+    String,
     Text, 
     DECIMAL,
-    func,
-    text
+    func
 )
 
 from typing import List, Optional
@@ -150,6 +146,13 @@ class Part(Base):
     # Связь с таблицей спецификаций
     specifications: Mapped[List['PartSpecification']] = relationship('part_specification', back_populates="part") 
 
+    # Связь с таблицей изображений
+    images: Mapped[List["Image"]] = relationship(
+        "Image", 
+        back_populates="part", 
+        cascade="all, delete-orphan"
+    )
+
 # Таблица спецификаций запчастей
 class PartSpecification(Base):
     __tablename__ = 'part_specifications'
@@ -161,7 +164,7 @@ class PartSpecification(Base):
     spec_unit: Mapped[str] = mapped_column(String(20), nullable=True)  # Единица измерения
     
     # Связь с таблицей запчастей
-    part: Mapped['Part'] = relationship('parts', back_populates='specifications')
+    part: Mapped['Part'] = relationship('Parts', back_populates='specifications')
 
 # Таблица категорий запчастей
 class PartCategory(Base):
@@ -173,13 +176,13 @@ class PartCategory(Base):
     parent_id: Mapped[int] = mapped_column(ForeignKey('part_categories.category_id'), nullable=True)
 
     parent: Mapped['PartCategory'] = relationship(
-        'part_categories', 
+        'PartCategory', 
         remote_side=lambda: PartCategory.category_id, 
         back_populates='childrens'
     )
 
     childrens: Mapped[List['PartCategory']] = relationship(
-        'part_categories', 
+        'PartCategory', 
         back_populates='parent', 
         cascade='all, delete-orphan'
     )
@@ -201,6 +204,13 @@ class Car(Base):
     
     # Связь с таблицей комплектаций
     trim: Mapped["CarTrim"] = relationship("CarTrim", back_populates="cars")
+
+    # Связь с таблицей изображений
+    images: Mapped[List["Image"]] = relationship(
+        "Image", 
+        back_populates="car", 
+        cascade="all, delete-orphan"
+    )
 
 # Таблица комплектаций авто
 class CarTrim(Base):
@@ -317,3 +327,21 @@ class OrderItem(Base):
     
     order: Mapped["Order"] = relationship("Order", back_populates="order_items")
     part: Mapped["Part"] = relationship("Part", back_populates="order_items")
+
+
+# Таблица изображений
+class Image(Base):
+    __tablename__ = "images"
+
+    image_id: Mapped[intpk]
+    url: Mapped[str] = mapped_column(String(500), nullable=False)       # полный путь: /static/images/cars/1/car_1_1.jpg
+    alt_text: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # альтернативный текст
+    primary: Mapped[int] = mapped_column(Boolean, default=False)   # положение фото
+
+    # Внешние ключи
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id"), nullable=True)
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.part_id"), nullable=True)
+
+    # Связи
+    car: Mapped["Car"] = relationship("Car", back_populates="images")
+    part: Mapped["Part"] = relationship("Part", back_populates="images")

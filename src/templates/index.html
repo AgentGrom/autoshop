@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AutoShop - Автомобили и запчасти</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <a href="/login">Вход</a>
+                    <a href="/register">Регистрация</a>
+                    <a href="/cart">Корзина <span class="cart-count">(0)</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Поиск с переключателем -->
+    <div class="search-section">
+        <div class="container">
+            <h1 class="search-title">Найдите нужный товар</h1>
+            <div class="search-wrapper">
+                <form class="search-form" action="/search" method="GET">
+                    <div class="search-input-group">
+                        <div class="search-input-wrapper">
+                            <input type="text" class="search-input" placeholder="Введите марку, модель или VIN код..." autocomplete="off">
+                            <button type="button" class="clear-btn" title="Очистить поле">✕</button>
+                        </div>
+                        <div class="search-switch-container">
+                            <div class="search-switch">
+                                <button type="button" class="switch-btn active" data-type="cars">
+                                    <span class="switch-icon">🚗</span>
+                                    <span class="switch-text">Авто</span>
+                                </button>
+                                <button type="button" class="switch-btn" data-type="parts">
+                                    <span class="switch-icon">🔧</span>
+                                    <span class="switch-text">Запчасти</span>
+                                </button>
+                                <div class="switch-slider"></div>
+                            </div>
+                        </div>
+                        <button type="submit" class="search-btn">
+                            <span class="search-icon">🔍</span>
+                            <span class="search-text">Найти</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="search-hint">
+                <span id="search-hint-text">Ищите автомобили по марке, модели или VIN коду</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="main-content">
+                <!-- Блок автомобилей -->
+                <div class="block">
+                    <div class="block-header">
+                        <h2>🚗 Автомобили в продаже</h2>
+                    </div>
+                    <div class="block-content">
+                        <div class="item-card">
+                            <h3 class="item-title">Toyota Camry 2020</h3>
+                            <div class="item-info">Пробег: 45,000 км</div>
+                            <div class="item-info">Состояние: Отличное</div>
+                            <div class="item-info">Год: 2020</div>
+                            <div class="item-price">1,850,000 ₽</div>
+                            <div class="item-actions">
+                                <a href="/cars/1" class="btn btn-primary">Подробнее</a>
+                                <button class="btn btn-secondary">В избранное</button>
+                            </div>
+                        </div>
+                        <div class="item-card">
+                            <h3 class="item-title">BMW X5 2021</h3>
+                            <div class="item-info">Пробег: 30,000 км</div>
+                            <div class="item-info">Состояние: С пробегом</div>
+                            <div class="item-info">Год: 2021</div>
+                            <div class="item-price">3,200,000 ₽</div>
+                            <div class="item-actions">
+                                <a href="/cars/2" class="btn btn-primary">Подробнее</a>
+                                <button class="btn btn-secondary">В избранное</button>
+                            </div>
+                        </div>
+                        <div class="item-card">
+                            <h3 class="item-title">Honda Civic 2019</h3>
+                            <div class="item-info">Пробег: 60,000 км</div>
+                            <div class="item-info">Состояние: Хорошее</div>
+                            <div class="item-info">Год: 2019</div>
+                            <div class="item-price">1,200,000 ₽</div>
+                            <div class="item-actions">
+                                <a href="/cars/3" class="btn btn-primary">Подробнее</a>
+                                <button class="btn btn-secondary">В избранное</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="block-footer">
+                        <a href="/cars" class="see-all">Все автомобили →</a>
+                    </div>
+                </div>
+
+                <!-- Блок запчастей -->
+                <div class="block">
+                    <div class="block-header">
+                        <h2>🔧 Популярные запчасти</h2>
+                    </div>
+                    <div class="block-content">
+                        <div class="item-card">
+                            <h3 class="item-title">Тормозные диски Brembo</h3>
+                            <div class="item-info">Артикул: BR-12345</div>
+                            <div class="item-info">Для: Toyota Camry, Honda Accord</div>
+                            <div class="item-info">В наличии: 15 шт</div>
+                            <div class="item-price">4,500 ₽</div>
+                            <div class="item-actions">
+                                <button class="btn btn-primary">В корзину</button>
+                                <a href="/parts/1" class="btn btn-secondary">Подробнее</a>
+                            </div>
+                        </div>
+                        <div class="item-card">
+                            <h3 class="item-title">Масляный фильтр MANN</h3>
+                            <div class="item-info">Артикул: MF-67890</div>
+                            <div class="item-info">Для: BMW X5, Mercedes E-Class</div>
+                            <div class="item-info">В наличии: 32 шт</div>
+                            <div class="item-price">800 ₽</div>
+                            <div class="item-actions">
+                                <button class="btn btn-primary">В корзину</button>
+                                <a href="/parts/2" class="btn btn-secondary">Подробнее</a>
+                            </div>
+                        </div>
+                        <div class="item-card">
+                            <h3 class="item-title">Аккумулятор VARTA</h3>
+                            <div class="item-info">Артикул: BAT-45678</div>
+                            <div class="item-info">Для: Все модели</div>
+                            <div class="item-info">В наличии: 8 шт</div>
+                            <div class="item-price">12,000 ₽</div>
+                            <div class="item-actions">
+                                <button class="btn btn-primary">В корзину</button>
+                                <a href="/parts/3" class="btn btn-secondary">Подробнее</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="block-footer">
+                        <a href="/parts" class="see-all">Все запчасти →</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                    <a href="/docs/api">REST API документация</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+                <p>Курсовая работа по базам данных</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Скрипт переключения поиска -->
+    <script src="{{ url_for('static', path='js/index.js') }}"></script>
+
+</body>
+</html>
