@@ -336,7 +336,7 @@ class Image(Base):
     image_id: Mapped[intpk]
     url: Mapped[str] = mapped_column(String(500), nullable=False)       # полный путь: /static/images/cars/1/car_1_1.jpg
     alt_text: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # альтернативный текст
-    primary: Mapped[int] = mapped_column(Boolean, default=False)   # положение фото
+    sort_order: Mapped[int] = mapped_column(Integer, default=False)   # положение фото
 
     # Внешние ключи
     car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id"), nullable=True)
