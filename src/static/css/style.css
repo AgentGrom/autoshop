@@ -671,6 +671,10 @@ body {
     width: 100%;
     height: 200px;
     object-fit: cover;
+    display: none;
+}
+
+.carousel-image:first-child {
     display: block;
 }
 
