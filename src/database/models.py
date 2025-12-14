@@ -141,10 +141,12 @@ class Part(Base):
     category_id: Mapped[int] = mapped_column(ForeignKey('part_categories.category_id'))             # id категориии
     
     # Связь с таблицей категорий
-    category: Mapped['PartCategory'] = relationship('part_categories', back_populates="part") 
+    category: Mapped['PartCategory'] = relationship('PartCategory', back_populates="part") 
 
     # Связь с таблицей спецификаций
-    specifications: Mapped[List['PartSpecification']] = relationship('part_specification', back_populates="part") 
+    specifications: Mapped[List['PartSpecification']] = relationship('PartSpecification', back_populates="part") 
+
+    order_items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="part")
 
     # Связь с таблицей изображений
     images: Mapped[List["Image"]] = relationship(
@@ -158,13 +160,13 @@ class PartSpecification(Base):
     __tablename__ = 'part_specifications'
 
     spec_id: Mapped[intpk]
-    part_id: Mapped[int] = mapped_column(ForeignKey('parts.part_id'))  # Внешний ключ с таблицей запчастей
+    part_id: Mapped[int] = mapped_column(ForeignKey('parts.part_id', ondelete="CASCADE"))  # Внешний ключ с таблицей запчастей
     spec_name: Mapped[str] = mapped_column(String(50))
     spec_value: Mapped[str] = mapped_column(String(100))               # Значение спецификации
     spec_unit: Mapped[str] = mapped_column(String(20), nullable=True)  # Единица измерения
     
     # Связь с таблицей запчастей
-    part: Mapped['Part'] = relationship('Parts', back_populates='specifications')
+    part: Mapped['Part'] = relationship('Part', back_populates='specifications')
 
 # Таблица категорий запчастей
 class PartCategory(Base):
@@ -187,7 +189,7 @@ class PartCategory(Base):
         cascade='all, delete-orphan'
     )
 
-    part: Mapped[List['Part']] = relationship('parts', back_populates='category')
+    part: Mapped[List['Part']] = relationship('Part', back_populates='category')
 
 # Таблица автомобилей
 class Car(Base):
@@ -228,8 +230,8 @@ class CarTrim(Base):
 
     fuel_type: Mapped[FuelTypeEnum] = mapped_column(String(20), nullable=True)
     transmission: Mapped[TransmissionEnum] = mapped_column(String(20), nullable=True)
-    drive_type: Mapped[DriveTypeEnum] = mapped_column(String(20), nullable=True)
-    body_type: Mapped[DriveTypeEnum] = mapped_column(String(20), nullable=True)
+    drive_type: Mapped[DriveTypeEnum] = mapped_column(String(20), nullable=True) # тип привода
+    body_type: Mapped[BodyTypeEnum] = mapped_column(String(20), nullable=True) # тип кузова
 
     doors: Mapped[int] = mapped_column(Integer, nullable=True)
     seats: Mapped[int] = mapped_column(Integer, nullable=True)
@@ -247,10 +249,10 @@ class User(Base):
     first_name: Mapped[str] = mapped_column(String(50)) # Имя
     last_name: Mapped[str] = mapped_column(String(50)) # Фамилия
     middle_name: Mapped[str] = mapped_column(String(50), nullable=True) # Отвечство
-    phone_number: Mapped[str] = mapped_column(String(20))
+    phone_number: Mapped[str] = mapped_column(String(20), nullable=True)
     
-    role: Mapped[UserRoleEnum] = mapped_column(String(20), default=UserRoleEnum.CUSTOMER)
-    status: Mapped[UserStatusEnum] = mapped_column(String(20), default=UserStatusEnum.PENDING_VERIFICATION)
+    role: Mapped[UserRoleEnum] = mapped_column(String(20), default=UserRoleEnum.CUSTOMER.value)
+    status: Mapped[UserStatusEnum] = mapped_column(String(20), default=UserStatusEnum.PENDING_VERIFICATION.value)
     
     registration_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     email_verified: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -298,7 +300,7 @@ class Order(Base):
     payment_method: Mapped[PaymentMethodEnum] = mapped_column(String(20))
 
     is_paid: Mapped[bool] = mapped_column(Boolean, default=False)
-    status: Mapped[OrderStatusEnum] = mapped_column(String(20), default=OrderStatusEnum.PROCESSING)
+    status: Mapped[OrderStatusEnum] = mapped_column(String(20), default=OrderStatusEnum.PROCESSING.value)
     order_date: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     status_updated: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     
@@ -339,8 +341,8 @@ class Image(Base):
     sort_order: Mapped[int] = mapped_column(Integer, default=False)   # положение фото
 
     # Внешние ключи
-    car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id"), nullable=True)
-    part_id: Mapped[int] = mapped_column(ForeignKey("parts.part_id"), nullable=True)
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id", ondelete="CASCADE"), nullable=True)
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.part_id", ondelete="CASCADE"), nullable=True)
 
     # Связи
     car: Mapped["Car"] = relationship("Car", back_populates="images")

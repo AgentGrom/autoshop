@@ -2,7 +2,11 @@ from dotenv import load_dotenv
 
 import os
 
+import secrets
+
 load_dotenv()
+
+JWT_KEY = os.getenv('JWT_KEY')
 
 DB_HOST = os.getenv('DB_HOST')
 DB_PORT = os.getenv('DB_PORT')
