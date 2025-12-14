@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Тест карусели</title>
+    <style>
+        /* Общие стили */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            color: #333;
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 12px;
+            width: 100%;
+        }
+
+        /* Стили карусели изображений */
+        .image-carousel {
+            position: relative;
+            width: 100%;
+            max-width: 300px;
+            margin: 0 auto 16px;
+            overflow: hidden;
+            border-radius: 8px;
+        }
+
+        .carousel-image {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            display: none;
+        }
+
+        .carousel-image:first-child {
+            display: block;
+        }
+
+        .carousel-indicators {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        .indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #ccc;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        .indicator.active {
+            background-color: #0066cc;
+        }
+
+        .carousel-controls {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            transform: translateY(-50%);
+        }
+
+        .carousel-btn {
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+        }
+
+        .carousel-btn:hover {
+            background: rgba(0, 0, 0, 0.8);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Тест карусели изображений</h1>
+        
+        <!-- Карточка товара с каруселью -->
+        <div class="item-card">
+            <div class="image-carousel">
+                <div class="carousel-wrapper">
+                    <img src="https://img.freepik.com/free-photo/close-up-beautiful-blue-butterfly-isolated_23-2151001325.jpg?semt=ais_hybrid&w=740&q=80" alt="Toyota Camry 2020" class="carousel-image">
+                    <img src="https://img.freepik.com/premium-photo/stack-rocks-water_81048-44479.jpg?semt=ais_hybrid" alt="Toyota Camry 2020" class="carousel-image">
+                    <img src="https://img.freepik.com/premium-photo/mountain-range-with-purple-orange-lights-background_1117680-1996.jpg?semt=ais_hybrid&w=740" alt="Toyota Camry 2020" class="carousel-image">
+                </div>
+                <div class="carousel-controls">
+                    <button class="carousel-btn carousel-prev">‹</button>
+                    <button class="carousel-btn carousel-next">›</button>
+                </div>
+                <div class="carousel-indicators"></div>
+            </div>
+            <h3 class="item-title">Toyota Camry 2020</h3>
+            <div class="item-info">Пробег: 45,000 км</div>
+            <div class="item-info">Состояние: Отличное</div>
+            <div class="item-info">Год: 2020</div>
+            <div class="item-price">1,850,000 ₽</div>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация карусели при загрузке страницы
+        function initializeCarousels() {
+            const carousels = document.querySelectorAll('.image-carousel');
+
+            carousels.forEach(carousel => {
+                const images = carousel.querySelectorAll('.carousel-image');
+                const indicatorsContainer = carousel.querySelector('.carousel-indicators');
+
+                if (images.length <= 1) {
+                    // Спрятать индикаторы при 1 изображении
+                    const controls = carousel.querySelector('.carousel-controls');
+                    if (controls) {
+                        controls.style.display = 'none';
+                    }
+                    return;
+                }
+
+                let currentIndex = 0;
+
+                // Создание индикаторов
+                images.forEach((img, index) => {
+                    const indicator = document.createElement('div');
+                    indicator.classList.add('indicator');
+                    if (index === 0) {
+                        indicator.classList.add('active');
+                    }
+
+                    indicator.addEventListener('click', () => {
+                        goToSlide(index);
+                    });
+
+                    indicatorsContainer.appendChild(indicator);
+                });
+
+                // Добавление навигации карусели
+                const prevBtn = carousel.querySelector('.carousel-prev');
+                const nextBtn = carousel.querySelector('.carousel-next');
+
+                if (prevBtn) {
+                    prevBtn.addEventListener('click', () => {
+                        goToSlide(currentIndex - 1);
+                    });
+                }
+
+                if (nextBtn) {
+                    nextBtn.addEventListener('click', () => {
+                        goToSlide(currentIndex + 1);
+                    });
+                }
+
+                function goToSlide(index) {
+                    if (index >= images.length) {
+                        index = 0;
+                    } else if (index < 0) {
+                        index = images.length - 1;
+                    }
+
+                    // Обновление видимости
+                    images.forEach((img, i) => {
+                        img.style.display = i === index ? 'block' : 'none';
+                    });
+
+                    // Обновление индикаторов
+                    const indicators = carousel.querySelectorAll('.indicator');
+                    indicators.forEach((ind, i) => {
+                        ind.classList.toggle('active', i === index);
+                    });
+
+                    currentIndex = index;
+                }
+
+                // Инициализация слайда
+                images.forEach((img, i) => {
+                    img.style.display = i === 0 ? 'block' : 'none';
+                });
+            });
+        }
+
+        // Инициализация каруселей при загрузке страницы
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCarousels();
+        });
+    </script>
+</body>
+</html>
