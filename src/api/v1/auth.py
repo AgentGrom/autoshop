@@ -27,7 +27,8 @@ async def register(
     confirm_password: Annotated[str, Form()],
     first_name: Annotated[str, Form()],
     last_name: Annotated[str, Form()],
-    phone_number: Annotated[str, Form()],
+    phone_number: Annotated[str, Form()] = "",  # Необязательное поле
+    middle_name: Annotated[str, Form()] = "",   # Необязательное поле
     session: AsyncSession = Depends(get_async_session)
 ):
     # 1. Проверка: пароли совпадают
@@ -59,7 +60,8 @@ async def register(
         "password_hash": password,
         "first_name": first_name,
         "last_name": last_name,
-        "phone_number": phone_number
+        "middle_name": middle_name if middle_name else None,
+        "phone_number": phone_number if phone_number else None
     }
     user = await create_user(session, user_data)
 

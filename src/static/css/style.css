@@ -664,6 +664,26 @@ body {
     margin-bottom: 16px;
 }
 
+.form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.half-width {
+    flex: 1;
+    min-width: 0; /* Allows flex item to shrink below content size */
+}
+
+.form-row {
+    display: flex;
+    gap: 16px;
+}
+
+.half-width {
+    flex: 1;
+    min-width: 0; /* Allows flex item to shrink below content size */
+}
+
 .form-group label {
     display: block;
     margin-bottom: 6px;
@@ -720,4 +740,9 @@ body {
 
 .mt-3 {
     margin-top: 12px;
+}
+
+.required {
+    color: #dc3545;
+    margin-left: 4px;
 }

@@ -45,7 +45,7 @@ async def create_user(session: AsyncSession, user_data: dict) -> User:
         first_name=user_data["first_name"],
         last_name=user_data["last_name"],
         middle_name=user_data.get("middle_name"),
-        phone_number=user_data["phone_number"]
+        phone_number=user_data.get("phone_number")
     )
     
     session.add(user)

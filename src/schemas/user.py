@@ -22,7 +22,7 @@ class UserBase(BaseModel):
     first_name: str
     last_name: str
     middle_name: Optional[str] = None
-    phone_number: str
+    phone_number: Optional[str] = None
     role: str
     status: str
     email_verified: bool
@@ -34,7 +34,7 @@ class UserCreate(BaseModel):
     first_name: str
     last_name: str
     middle_name: Optional[str] = None
-    phone_number: str
+    phone_number: Optional[str] = None
 
 class UserUpdate(BaseModel):
     first_name: Optional[str] = None
@@ -60,7 +60,7 @@ class UserOut(BaseModel):
     first_name: str
     last_name: str
     middle_name: Optional[str] = None
-    phone_number: str
+    phone_number: Optional[str] = None
     role: str
     status: str
     email_verified: bool
