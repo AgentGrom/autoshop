@@ -162,10 +162,10 @@ function initializeCarousels() {
                 index = images.length - 1;
             }
 
-            // Обновление видимости
-            images.forEach((img, i) => {
-                img.style.display = i === index ? 'block' : 'none';
-            });
+            // Calculate the transform value to move the carousel
+            const transformValue = -index * 100;
+            const wrapper = carousel.querySelector('.carousel-wrapper');
+            wrapper.style.transform = `translateX(${transformValue}%)`;
 
             // Обновление индикаторов
             const indicators = carousel.querySelectorAll('.indicator');
@@ -177,9 +177,8 @@ function initializeCarousels() {
         }
 
         // Инициализация слайда
-        images.forEach((img, i) => {
-            img.style.display = i === 0 ? 'block' : 'none';
-        });
+        const wrapper = carousel.querySelector('.carousel-wrapper');
+        wrapper.style.transform = 'translateX(0%)';
     });
 }
 
