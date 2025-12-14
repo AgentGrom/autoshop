@@ -62,8 +62,13 @@ body {
     font-weight: 500;
     font-size: 14px;
     transition: color 0.3s;
-    padding: 5px 10px;
-    border-radius: 4px;
+    padding: 8px 12px;
+    border-radius: 6px;
+}
+
+.nav-right a {
+    padding: 12px 20px;
+    font-weight: 600;
 }
 
 .nav-left a:hover, .nav-right a:hover {
@@ -649,6 +654,71 @@ body {
 
 .clear-btn:hover {
     opacity: 1 !important;
+}
+
+
+/* Стили карусели изображений */
+.image-carousel {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+    margin: 0 auto 16px;
+    overflow: hidden;
+    border-radius: 8px;
+}
+
+.carousel-image {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    display: block;
+}
+
+.carousel-indicators {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background-color: #ccc;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.indicator.active {
+    background-color: #0066cc;
+}
+
+.carousel-controls {
+    position: absolute;
+    top: 50%;
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    transform: translateY(-50%);
+}
+
+.carousel-btn {
+    background: rgba(0, 0, 0, 0.5);
+    color: white;
+    border: none;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+}
+
+.carousel-btn:hover {
+    background: rgba(0, 0, 0, 0.8);
 }
 
 /* Общие стили форм */

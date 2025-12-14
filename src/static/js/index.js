@@ -103,3 +103,87 @@ document.addEventListener('DOMContentLoaded', function () {
     updateSearchPlaceholder(activeType);
     toggleClearButton();
 });
+
+
+// Инициализация карусели при загрузке страницы
+function initializeCarousels() {
+    const carousels = document.querySelectorAll('.image-carousel');
+
+    carousels.forEach(carousel => {
+        const images = carousel.querySelectorAll('.carousel-image');
+        const indicatorsContainer = carousel.querySelector('.carousel-indicators');
+
+        if (images.length <= 1) {
+            // Спрятать индикаторы при 1 изображении
+            const controls = carousel.querySelector('.carousel-controls');
+            if (controls) {
+                controls.style.display = 'none';
+            }
+            return;
+        }
+
+        let currentIndex = 0;
+
+        // Создание индикаторов
+        images.forEach((img, index) => {
+            const indicator = document.createElement('div');
+            indicator.classList.add('indicator');
+            if (index === 0) {
+                indicator.classList.add('active');
+            }
+
+            indicator.addEventListener('click', () => {
+                goToSlide(index);
+            });
+
+            indicatorsContainer.appendChild(indicator);
+        });
+
+        // Добавление навигации карусели
+        const prevBtn = carousel.querySelector('.carousel-prev');
+        const nextBtn = carousel.querySelector('.carousel-next');
+
+        if (prevBtn) {
+            prevBtn.addEventListener('click', () => {
+                goToSlide(currentIndex - 1);
+            });
+        }
+
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                goToSlide(currentIndex + 1);
+            });
+        }
+
+        function goToSlide(index) {
+            if (index >= images.length) {
+                index = 0;
+            } else if (index < 0) {
+                index = images.length - 1;
+            }
+
+            // Обновление видимости
+            images.forEach((img, i) => {
+                img.style.display = i === index ? 'block' : 'none';
+            });
+
+            // Обновление индикаторов
+            const indicators = carousel.querySelectorAll('.indicator');
+            indicators.forEach((ind, i) => {
+                ind.classList.toggle('active', i === index);
+            });
+
+            currentIndex = index;
+        }
+
+        // Инициализация слайда
+        images.forEach((img, i) => {
+            img.style.display = i === 0 ? 'block' : 'none';
+        });
+    });
+}
+
+// Инициализация каруселей при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    initializeCarousels();
+});
