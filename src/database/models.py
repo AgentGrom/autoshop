@@ -336,9 +336,9 @@ class Image(Base):
     __tablename__ = "images"
 
     image_id: Mapped[intpk]
-    url: Mapped[str] = mapped_column(String(500), nullable=False)       # полный путь: /static/images/cars/1/car_1_1.jpg
-    alt_text: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)  # альтернативный текст
-    sort_order: Mapped[int] = mapped_column(Integer, default=False)   # положение фото
+    url: Mapped[str] = mapped_column(String(500))       # полный путь: /static/images/cars/1/car_1_1.jpg
+    alt_text: Mapped[str] = mapped_column(String(200), nullable=True)  # альтернативный текст
+    sort_order: Mapped[int] = mapped_column(Integer, default=1)   # положение фото
 
     # Внешние ключи
     car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id", ondelete="CASCADE"), nullable=True)

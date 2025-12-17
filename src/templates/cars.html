@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Автомобили в продаже - AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+    <style>
+        /* Дополнительные стили для страницы автомобилей */
+        .cars-container {
+            padding: 20px 0;
+        }
+
+        .cars-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .page-end {
+            text-align: center;
+            padding: 20px 0;
+            color: #666;
+            font-style: italic;
+        }
+
+        .loader {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .loader .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #0066cc;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 2s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars" class="active">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <a href="/api/auth/login">Вход</a>
+                    <a href="/api/auth/register">Регистрация</a>
+                    <a href="/cart">Корзина <span class="cart-count">(0)</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Заголовок страницы -->
+    <div class="search-section">
+        <div class="container">
+            <h1 class="search-title">🚗 Автомобили в продаже</h1>
+            <p>Широкий выбор автомобилей с гарантией качества</p>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="cars-container">
+                <div class="cars-grid" id="cars-grid">
+                    <!-- Сюда будут загружаться автомобили -->
+                    <!-- Показываем лоадер при загрузке -->
+                    <div class="loader" id="loader">
+                        <div class="spinner"></div>
+                        <p>Загрузка автомобилей...</p>
+                    </div>
+                </div>
+                <div class="loader" id="infinite-loader" style="display: none; text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                    <p>Загрузка автомобилей...</p>
+                </div>
+                <div class="page-end" id="end-message" style="display: none;">
+                    <p>Вы просмотрели все доступные автомобили</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                    <a href="/docs/api">REST API документация</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+                <p>Курсовая работа по базам данных</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/cars.js') }}"></script>
+
+</body>
+</html>

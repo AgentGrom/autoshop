@@ -74,71 +74,80 @@
                     <div class="block-header">
                         <h2>🚗 Автомобили в продаже</h2>
                     </div>
-                    <div class="block-content">
-                        <div class="item-card">
-                            <div class="image-carousel">
-                                <div class="carousel-wrapper">
-                                    <img src="https://img.freepik.com/free-photo/close-up-beautiful-blue-butterfly-isolated_23-2151001325.jpg?semt=ais_hybrid&w=740&q=80" alt="Toyota Camry 2020" class="carousel-image">
-                                    <img src="https://img.freepik.com/premium-photo/stack-rocks-water_81048-44479.jpg?semt=ais_hybrid" alt="Toyota Camry 2020" class="carousel-image">
-                                    <img src="https://img.freepik.com/premium-photo/mountain-range-with-purple-orange-lights-background_1117680-1996.jpg?semt=ais_hybrid&w=740" alt="Toyota Camry 2020" class="carousel-image">
-                                </div>
-                                <div class="carousel-controls">
-                                    <button class="carousel-btn carousel-prev">‹</button>
-                                    <button class="carousel-btn carousel-next">›</button>
-                                </div>
-                                <div class="carousel-indicators"></div>
-                            </div>
-                            <h3 class="item-title">Toyota Camry 2020</h3>
-                            <div class="item-info">Пробег: 45,000 км</div>
-                            <div class="item-info">Состояние: Отличное</div>
-                            <div class="item-info">Год: 2020</div>
-                            <div class="item-price">1,850,000 ₽</div>
-                            <div class="item-actions">
-                                <a href="/cars/1" class="btn btn-primary">Подробнее</a>
-                                <button class="btn btn-secondary">В избранное</button>
-                            </div>
+                    <div class="block-content" id="home-cars-container">
+                        <!-- Здесь будут загружаться автомобили динамически -->
+                        <div class="loader" id="home-cars-loader" style="display: flex; justify-content: center; align-items: center; padding: 20px;">
+                            <div class="spinner"></div>
+                            <p style="margin-left: 10px;">Загрузка автомобилей...</p>
                         </div>
-                        <div class="item-card">
-                            <div class="image-carousel">
-                                <div class="carousel-wrapper">
-                                    <img src="https://i.pinimg.com/736x/b6/84/12/b6841265be11c3aeff1b7cabdfa73730.jpg" alt="BMW X5 2021" class="carousel-image">
-                                    <img src="https://i.pinimg.com/736x/7d/10/cb/7d10cb8238516524b01bfbd06a7c6a56.jpg" alt="BMW X5 2021" class="carousel-image">
+
+                        <!-- Заглушка на случай ошибки -->
+                        <div id="home-cars-fallback" style="display: none;">
+                            <div class="item-card">
+                                <div class="image-carousel">
+                                    <div class="carousel-wrapper">
+                                        <img src="https://img.freepik.com/free-photo/close-up-beautiful-blue-butterfly-isolated_23-2151001325.jpg?semt=ais_hybrid&w=740&q=80" alt="Toyota Camry 2020" class="carousel-image">
+                                        <img src="https://img.freepik.com/premium-photo/stack-rocks-water_81048-44479.jpg?semt=ais_hybrid" alt="Toyota Camry 2020" class="carousel-image">
+                                        <img src="https://img.freepik.com/premium-photo/mountain-range-with-purple-orange-lights-background_1117680-1996.jpg?semt=ais_hybrid&w=740" alt="Toyota Camry 2020" class="carousel-image">
+                                    </div>
+                                    <div class="carousel-controls">
+                                        <button class="carousel-btn carousel-prev">‹</button>
+                                        <button class="carousel-btn carousel-next">›</button>
+                                    </div>
+                                    <div class="carousel-indicators"></div>
                                 </div>
-                                <div class="carousel-controls">
-                                    <button class="carousel-btn carousel-prev">‹</button>
-                                    <button class="carousel-btn carousel-next">›</button>
+                                <h3 class="item-title">Toyota Camry 2020</h3>
+                                <div class="item-info">Пробег: 45,000 км</div>
+                                <div class="item-info">Состояние: Отличное</div>
+                                <div class="item-info">Год: 2020</div>
+                                <div class="item-price">1,850,000 ₽</div>
+                                <div class="item-actions">
+                                    <a href="/cars/1" class="btn btn-primary">Подробнее</a>
+                                    <button class="btn btn-secondary">В избранное</button>
                                 </div>
-                                <div class="carousel-indicators"></div>
                             </div>
-                            <h3 class="item-title">BMW X5 2021</h3>
-                            <div class="item-info">Пробег: 30,000 км</div>
-                            <div class="item-info">Состояние: С пробегом</div>
-                            <div class="item-info">Год: 2021</div>
-                            <div class="item-price">3,200,000 ₽</div>
-                            <div class="item-actions">
-                                <a href="/cars/2" class="btn btn-primary">Подробнее</a>
-                                <button class="btn btn-secondary">В избранное</button>
-                            </div>
-                        </div>
-                        <div class="item-card">
-                            <div class="image-carousel">
-                                <div class="carousel-wrapper">
-                                    <img src="https://img.freepik.com/premium-photo/yellow-smiley-face-is-street_910054-22017.jpg?semt=ais_hybrid&w=740" alt="Honda Civic 2019" class="carousel-image">
+                            <div class="item-card">
+                                <div class="image-carousel">
+                                    <div class="carousel-wrapper">
+                                        <img src="https://i.pinimg.com/736x/b6/84/12/b6841265be11c3aeff1b7cabdfa73730.jpg" alt="BMW X5 2021" class="carousel-image">
+                                        <img src="https://i.pinimg.com/736x/7d/10/cb/7d10cb8238516524b01bfbd06a7c6a56.jpg" alt="BMW X5 2021" class="carousel-image">
+                                    </div>
+                                    <div class="carousel-controls">
+                                        <button class="carousel-btn carousel-prev">‹</button>
+                                        <button class="carousel-btn carousel-next">›</button>
+                                    </div>
+                                    <div class="carousel-indicators"></div>
                                 </div>
-                                <div class="carousel-controls">
-                                    <button class="carousel-btn carousel-prev">‹</button>
-                                    <button class="carousel-btn carousel-next">›</button>
+                                <h3 class="item-title">BMW X5 2021</h3>
+                                <div class="item-info">Пробег: 30,000 км</div>
+                                <div class="item-info">Состояние: С пробегом</div>
+                                <div class="item-info">Год: 2021</div>
+                                <div class="item-price">3,200,000 ₽</div>
+                                <div class="item-actions">
+                                    <a href="/cars/2" class="btn btn-primary">Подробнее</a>
+                                    <button class="btn btn-secondary">В избранное</button>
                                 </div>
-                                <div class="carousel-indicators"></div>
                             </div>
-                            <h3 class="item-title">Honda Civic 2019</h3>
-                            <div class="item-info">Пробег: 60,000 км</div>
-                            <div class="item-info">Состояние: Хорошее</div>
-                            <div class="item-info">Год: 2019</div>
-                            <div class="item-price">1,200,000 ₽</div>
-                            <div class="item-actions">
-                                <a href="/cars/3" class="btn btn-primary">Подробнее</a>
-                                <button class="btn btn-secondary">В избранное</button>
+                            <div class="item-card">
+                                <div class="image-carousel">
+                                    <div class="carousel-wrapper">
+                                        <img src="https://img.freepik.com/premium-photo/yellow-smiley-face-is-street_910054-22017.jpg?semt=ais_hybrid&w=740" alt="Honda Civic 2019" class="carousel-image">
+                                    </div>
+                                    <div class="carousel-controls">
+                                        <button class="carousel-btn carousel-prev">‹</button>
+                                        <button class="carousel-btn carousel-next">›</button>
+                                    </div>
+                                    <div class="carousel-indicators"></div>
+                                </div>
+                                <h3 class="item-title">Honda Civic 2019</h3>
+                                <div class="item-info">Пробег: 60,000 км</div>
+                                <div class="item-info">Состояние: Хорошее</div>
+                                <div class="item-info">Год: 2019</div>
+                                <div class="item-price">1,200,000 ₽</div>
+                                <div class="item-actions">
+                                    <a href="/cars/3" class="btn btn-primary">Подробнее</a>
+                                    <button class="btn btn-secondary">В избранное</button>
+                                </div>
                             </div>
                         </div>
                     </div>

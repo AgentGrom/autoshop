@@ -5,6 +5,7 @@ from fastapi.templating import Jinja2Templates
 # Импортируем роутеры
 from src.api.v1.pages import router as pages_router
 from src.api.v1.auth import router as auth_router
+from src.api.v1.cars import router as cars_router
 
 app = FastAPI(title="Автомагазин")
 
@@ -15,6 +16,7 @@ templates = Jinja2Templates(directory="src/templates")
 # Подключаем роуты
 app.include_router(pages_router)      # /, /about и т.д.
 app.include_router(auth_router, prefix="/api")  # /api/auth/register, /api/auth/login
+app.include_router(cars_router, prefix="/api")  # /api/cars/
 
 # Кастомный 404
 @app.exception_handler(404)
