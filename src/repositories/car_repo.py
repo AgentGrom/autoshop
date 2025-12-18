@@ -254,7 +254,7 @@ async def filter_cars(
         fuel_types=fuel_types
     )
 
-    stmt = select(Car)
+    stmt = select(Car).join(Car.trim)
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 
 
@@ -313,9 +313,9 @@ async def search_and_filter_cars(
         car_ids = await get_car_ids_by_search(session, query)
         if not car_ids:
             return []
-        stmt = select(Car).where(Car.car_id.in_(car_ids))
+        stmt = select(Car).join(Car.trim).where(Car.car_id.in_(car_ids))
     else:
-        stmt = select(Car)
+        stmt = select(Car).join(Car.trim)
 
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 

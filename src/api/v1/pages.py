@@ -60,3 +60,10 @@ async def cars_page(request: Request):
         "cars.html",
         {"request": request, "title": "Автомобили в продаже"}
     )
+
+@router.get("/cars/{car_id}")
+async def car_detail_page(request: Request, car_id: int):
+    return templates.TemplateResponse(
+        "car_detail.html",
+        {"request": request, "title": "Детали автомобиля", "car_id": car_id}
+    )

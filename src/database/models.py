@@ -38,6 +38,21 @@ class ConditionEnum(Enum):
     NEW = "Новый"
     USED = "С пробегом"
 
+
+# Цвета авто (пока может использоваться только для метаданных фильтров)
+class ColorEnum(Enum):
+    WHITE = "Белый"
+    BLACK = "Черный"
+    SILVER = "Серебристый"
+    GREY = "Серый"
+    BLUE = "Синий"
+    RED = "Красный"
+    GREEN = "Зеленый"
+    BROWN = "Коричневый"
+    BEIGE = "Бежевый"
+    YELLOW = "Желтый"
+    ORANGE = "Оранжевый"
+
 # Тип используемого топлива
 class FuelTypeEnum(Enum):
     PETROL = "Бензин"
@@ -201,7 +216,7 @@ class Car(Base):
     production_year: Mapped[int] = mapped_column(Integer)
     condition: Mapped[ConditionEnum] = mapped_column(String(20)) # Состояния
     mileage: Mapped[int] = mapped_column(Integer)  # пробег в км
-    color: Mapped[str] = mapped_column(String(30))
+    color: Mapped[ColorEnum] = mapped_column(String(30))
     price: Mapped[float] = mapped_column(DECIMAL(12, 2), nullable=True)  # цена для продажи
     
     # Связь с таблицей комплектаций

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Детали автомобиля - AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars" class="active">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <a href="/api/auth/login">Вход</a>
+                    <a href="/api/auth/register">Регистрация</a>
+                    <a href="/cart">Корзина <span class="cart-count">(0)</span></a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="car-detail-container" data-car-id="{{ car_id }}">
+            <!-- Лоадер -->
+            <div class="loader" id="loader">
+                <div class="spinner"></div>
+                <p>Загрузка данных автомобиля...</p>
+            </div>
+
+            <!-- Контент автомобиля (скрыт изначально) -->
+            <div id="car-content" style="display: none;">
+                <!-- Заголовок -->
+                <div class="car-detail-header">
+                    <h1 class="car-detail-title" id="car-title"></h1>
+                </div>
+
+                <!-- Карусель изображений -->
+                <div class="car-detail-carousel">
+                    <div class="image-carousel" id="car-carousel">
+                        <!-- Изображения будут добавлены через JS -->
+                    </div>
+                </div>
+
+                <!-- Панель с ценой и кнопкой -->
+                <div class="car-price-panel">
+                    <div class="car-detail-price" id="car-price"></div>
+                    <button class="car-buy-btn" id="buy-btn">Купить</button>
+                </div>
+
+                <!-- Характеристики -->
+                <div class="car-specs-section">
+                    <h2 class="car-specs-title">Характеристики</h2>
+                    <div class="car-specs-grid" id="car-specs">
+                        <!-- Характеристики будут добавлены через JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Сообщение об ошибке (скрыто изначально) -->
+            <div class="error-message" id="error-message" style="display: none;">
+                <h2>Автомобиль не найден</h2>
+                <p>К сожалению, запрашиваемый автомобиль не найден в нашей базе данных.</p>
+                <a href="/cars" class="btn">Вернуться к списку автомобилей</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                    <a href="/docs/api">REST API документация</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+                <p>Курсовая работа по базам данных</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/car_detail.js') }}"></script>
+
+</body>
+</html>
+

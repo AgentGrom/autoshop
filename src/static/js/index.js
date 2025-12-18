@@ -94,9 +94,12 @@ document.addEventListener('DOMContentLoaded', function () {
         // Обновляем текущий запрос
         queries[activeType] = query;
 
-        console.log(`Поиск ${activeType}: ${query}`);
-        // Раскомментировать при готовности:
-        // window.location.href = `/search/${activeType}?q=${encodeURIComponent(query)}`;
+        // Перенаправляем на соответствующую страницу с параметром query
+        if (activeType === 'cars') {
+            window.location.href = `/cars?query=${encodeURIComponent(query)}`;
+        } else if (activeType === 'parts') {
+            window.location.href = `/parts?query=${encodeURIComponent(query)}`;
+        }
     });
 
     // Инициализация

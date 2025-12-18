@@ -5,45 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Автомобили в продаже - AutoShop</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
-    <style>
-        /* Дополнительные стили для страницы автомобилей */
-        .cars-container {
-            padding: 20px 0;
-        }
-
-        .cars-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 20px;
-        }
-
-        .page-end {
-            text-align: center;
-            padding: 20px 0;
-            color: #666;
-            font-style: italic;
-        }
-
-        .loader {
-            text-align: center;
-            padding: 20px;
-        }
-
-        .loader .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #0066cc;
-            border-radius: 50%;
-            width: 40px;
-            height: 40px;
-            animation: spin 2s linear infinite;
-            margin: 0 auto;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-    </style>
 </head>
 <body>
     <!-- Верхняя навигация -->
@@ -67,17 +28,216 @@
         </div>
     </div>
 
-    <!-- Заголовок страницы -->
+    <!-- Поиск с переключателем -->
     <div class="search-section">
         <div class="container">
             <h1 class="search-title">🚗 Автомобили в продаже</h1>
-            <p>Широкий выбор автомобилей с гарантией качества</p>
+            <div class="search-wrapper">
+                <form class="search-form" id="cars-search-form">
+                    <div class="search-input-group">
+                        <div class="search-input-wrapper">
+                            <input type="text" class="search-input" id="cars-search-input" placeholder="Введите марку, модель или VIN код..." autocomplete="off">
+                            <button type="button" class="clear-btn" id="cars-search-clear" title="Очистить поле">✕</button>
+                        </div>
+                        <button type="submit" class="search-btn">
+                            <span class="search-icon">🔍</span>
+                            <span class="search-text">Найти</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="search-hint">
+                <span id="cars-search-hint">Ищите автомобили по марке, модели или VIN коду</span>
+            </div>
         </div>
     </div>
 
     <!-- Основной контент -->
     <div class="main-content-wrapper">
         <div class="container">
+            <!-- Панель управления фильтрами и активные фильтры -->
+            <div class="cars-toolbar">
+                <button id="open-filters" class="btn btn-secondary filters-toggle-btn">
+                    Фильтры
+                </button>
+                <div id="active-filters" class="filter-chips-container">
+                    <!-- Чипы активных фильтров будут добавляться здесь -->
+                </div>
+            </div>
+
+            <!-- Оверлей фильтров -->
+            <div id="filters-overlay" class="filters-overlay" aria-hidden="true">
+                <div class="filters-panel">
+                    <div class="filters-header">
+                        <h2>Фильтры по автомобилям</h2>
+                        <button id="close-filters" class="filters-close-btn" aria-label="Закрыть">✕</button>
+                    </div>
+                    <div class="filters-body">
+                        <div class="filters-section">
+                            <h3>Основные параметры</h3>
+                            <div class="filters-grid">
+                                <div class="filter-group">
+                                    <label>Цена, ₽</label>
+                                    <div class="range-row">
+                                        <div class="input-wrapper">
+                                            <input type="number" id="min-price" class="form-control" placeholder="От">
+                                            <button type="button" class="clear-input-btn" data-target="min-price" title="Очистить">✕</button>
+                                        </div>
+                                        <div class="input-wrapper">
+                                            <input type="number" id="max-price" class="form-control" placeholder="До">
+                                            <button type="button" class="clear-input-btn" data-target="max-price" title="Очистить">✕</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <label>Пробег, км</label>
+                                    <div class="range-row">
+                                        <div class="input-wrapper">
+                                            <input type="number" id="min-mileage" class="form-control" placeholder="От">
+                                            <button type="button" class="clear-input-btn" data-target="min-mileage" title="Очистить">✕</button>
+                                        </div>
+                                        <div class="input-wrapper">
+                                            <input type="number" id="max-mileage" class="form-control" placeholder="До">
+                                            <button type="button" class="clear-input-btn" data-target="max-mileage" title="Очистить">✕</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <label>Год выпуска</label>
+                                    <div class="range-row">
+                                        <div class="input-wrapper">
+                                            <input type="number" id="min-year" class="form-control" placeholder="От" min="1900" max="2030">
+                                            <button type="button" class="clear-input-btn" data-target="min-year" title="Очистить">✕</button>
+                                        </div>
+                                        <div class="input-wrapper">
+                                            <input type="number" id="max-year" class="form-control" placeholder="До" min="1900" max="2030">
+                                            <button type="button" class="clear-input-btn" data-target="max-year" title="Очистить">✕</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <label>Мощность, л.с.</label>
+                                    <div class="range-row">
+                                        <div class="input-wrapper">
+                                            <input type="number" id="min-engine-power" class="form-control" placeholder="От">
+                                            <button type="button" class="clear-input-btn" data-target="min-engine-power" title="Очистить">✕</button>
+                                        </div>
+                                        <div class="input-wrapper">
+                                            <input type="number" id="max-engine-power" class="form-control" placeholder="До">
+                                            <button type="button" class="clear-input-btn" data-target="max-engine-power" title="Очистить">✕</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <div class="filter-group-header">
+                                        <label>Марка</label>
+                                        <button type="button" class="clear-group-btn" data-group="brands-checkboxes" title="Очистить все">Очистить</button>
+                                    </div>
+                                    <div id="brands-checkboxes" class="checkbox-group">
+                                        <!-- Чекбоксы марок подставляются из ENUM -->
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <div class="filter-group-header">
+                                        <label>Состояние</label>
+                                        <button type="button" class="clear-group-btn" data-group="conditions-checkboxes" title="Очистить все">Очистить</button>
+                                    </div>
+                                    <div id="conditions-checkboxes" class="checkbox-group">
+                                        <!-- Чекбоксы состояний подставляются из ENUM -->
+                                    </div>
+                                </div>
+                                <div class="filter-group">
+                                    <div class="filter-group-header">
+                                        <label>Цвет</label>
+                                        <button type="button" class="clear-group-btn" data-group="colors-checkboxes" title="Очистить все">Очистить</button>
+                                    </div>
+                                    <div id="colors-checkboxes" class="checkbox-group">
+                                        <!-- Чекбоксы цветов подставляются из ENUM -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="filters-section">
+                            <button id="toggle-advanced-filters" class="link-button">
+                                Дополнительные фильтры
+                            </button>
+                            <div id="advanced-filters" class="advanced-filters" style="display: none;">
+                                <div class="filters-grid">
+                                    <div class="filter-group">
+                                        <div class="filter-group-header">
+                                            <label>Тип кузова</label>
+                                            <button type="button" class="clear-group-btn" data-group="body-types-checkboxes" title="Очистить все">Очистить</button>
+                                        </div>
+                                        <div id="body-types-checkboxes" class="checkbox-group">
+                                            <!-- Кузова -->
+                                        </div>
+                                    </div>
+                                    <div class="filter-group">
+                                        <div class="filter-group-header">
+                                            <label>Тип привода</label>
+                                            <button type="button" class="clear-group-btn" data-group="drive-types-checkboxes" title="Очистить все">Очистить</button>
+                                        </div>
+                                        <div id="drive-types-checkboxes" class="checkbox-group">
+                                            <!-- Привод -->
+                                        </div>
+                                    </div>
+                                    <div class="filter-group">
+                                        <div class="filter-group-header">
+                                            <label>КПП</label>
+                                            <button type="button" class="clear-group-btn" data-group="transmissions-checkboxes" title="Очистить все">Очистить</button>
+                                        </div>
+                                        <div id="transmissions-checkboxes" class="checkbox-group">
+                                            <!-- КПП -->
+                                        </div>
+                                    </div>
+                                    <div class="filter-group">
+                                        <div class="filter-group-header">
+                                            <label>Тип топлива</label>
+                                            <button type="button" class="clear-group-btn" data-group="fuel-types-checkboxes" title="Очистить все">Очистить</button>
+                                        </div>
+                                        <div id="fuel-types-checkboxes" class="checkbox-group">
+                                            <!-- Топливо -->
+                                        </div>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label>Объем двигателя, л</label>
+                                        <div class="range-row">
+                                            <div class="input-wrapper">
+                                                <input type="number" id="min-engine-volume" class="form-control" step="0.1" placeholder="От">
+                                                <button type="button" class="clear-input-btn" data-target="min-engine-volume" title="Очистить">✕</button>
+                                            </div>
+                                            <div class="input-wrapper">
+                                                <input type="number" id="max-engine-volume" class="form-control" step="0.1" placeholder="До">
+                                                <button type="button" class="clear-input-btn" data-target="max-engine-volume" title="Очистить">✕</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="filter-group">
+                                        <label>Крутящий момент, Н·м</label>
+                                        <div class="range-row">
+                                            <div class="input-wrapper">
+                                                <input type="number" id="min-engine-torque" class="form-control" placeholder="От">
+                                                <button type="button" class="clear-input-btn" data-target="min-engine-torque" title="Очистить">✕</button>
+                                            </div>
+                                            <div class="input-wrapper">
+                                                <input type="number" id="max-engine-torque" class="form-control" placeholder="До">
+                                                <button type="button" class="clear-input-btn" data-target="max-engine-torque" title="Очистить">✕</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="filters-footer">
+                        <button id="reset-filters" class="btn btn-secondary">Сбросить</button>
+                        <button id="apply-filters" class="btn btn-primary">Применить</button>
+                    </div>
+                </div>
+            </div>
+
             <div class="cars-container">
                 <div class="cars-grid" id="cars-grid">
                     <!-- Сюда будут загружаться автомобили -->
