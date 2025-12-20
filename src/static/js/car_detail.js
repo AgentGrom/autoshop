@@ -68,8 +68,23 @@ function renderCarDetails() {
 
     // Обработчик кнопки "Купить"
     const buyBtn = document.getElementById('buy-btn');
-    buyBtn.addEventListener('click', () => {
-        alert('Функция покупки будет реализована позже');
+    buyBtn.addEventListener('click', async () => {
+        // Проверяем авторизацию
+        if (typeof window.isAuthenticated === 'function') {
+            const isAuth = await window.isAuthenticated();
+            if (!isAuth) {
+                if (confirm('Для оформления заказа необходимо войти в аккаунт. Перейти на страницу входа?')) {
+                    window.location.href = '/api/auth/login';
+                }
+                return;
+            }
+        }
+        
+        // Переходим на страницу оформления заказа
+        const carId = getCarIdFromDom();
+        if (carId) {
+            window.location.href = `/orders/car/${carId}`;
+        }
     });
 
     // Характеристики

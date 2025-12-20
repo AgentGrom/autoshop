@@ -153,3 +153,18 @@ async def get_user_default_address(session: AsyncSession, user_id: int) -> Optio
         )
     )
     return result.scalar()
+
+
+async def get_user_address_by_id(session: AsyncSession, address_id: int, user_id: int) -> Optional[UserAddress]:
+    """
+    Возвращает адрес пользователя по ID (с проверкой принадлежности пользователю).
+    """
+    result = await session.execute(
+        select(UserAddress)
+        .where(
+            UserAddress.address_id == address_id,
+            UserAddress.user_id == user_id,
+            UserAddress.is_active == True
+        )
+    )
+    return result.scalar_one_or_none()

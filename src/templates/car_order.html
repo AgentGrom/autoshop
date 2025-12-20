@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оформление заказа — AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                </div>
+                <div class="nav-right">
+                    <!-- Навигация будет обновлена динамически через auth.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="order-container">
+                <div class="block-header">
+                    <h2>🚗 Оформление заказа автомобиля</h2>
+                </div>
+                
+                <div class="block-content">
+                    <!-- Загрузка -->
+                    <div id="order-loader" class="loader" style="display: flex; justify-content: center; align-items: center; padding: 40px;">
+                        <div class="spinner"></div>
+                        <p style="margin-left: 10px;">Загрузка данных...</p>
+                    </div>
+
+                    <!-- Ошибка -->
+                    <div id="order-error" style="display: none; text-align: center; padding: 40px; color: #d32f2f;">
+                        <p id="order-error-message"></p>
+                    </div>
+
+                    <!-- Форма заказа -->
+                    <div id="order-form-container" style="display: none;">
+                        <div class="order-layout">
+                            <!-- Левая колонка: Информация об автомобиле -->
+                            <div class="order-car-info">
+                                <h3>Автомобиль</h3>
+                                <div id="car-info-card" class="car-info-card">
+                                    <!-- Заполняется через JavaScript -->
+                                </div>
+                            </div>
+
+                            <!-- Правая колонка: Форма заказа -->
+                            <div class="order-form-section">
+                                <h3>Данные для заказа</h3>
+                                
+                                <!-- Выбор пункта выдачи -->
+                                <div class="form-group">
+                                    <label>Страна <span class="required">*</span></label>
+                                    <select id="country-select" class="form-control" required>
+                                        <option value="">Выберите страну</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Область/Регион <span class="required">*</span></label>
+                                    <select id="region-select" class="form-control" required disabled>
+                                        <option value="">Сначала выберите страну</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Город <span class="required">*</span></label>
+                                    <select id="city-select" class="form-control" required disabled>
+                                        <option value="">Сначала выберите область</option>
+                                    </select>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Пункт выдачи <span class="required">*</span></label>
+                                    <select id="pickup-point-select" class="form-control" required disabled>
+                                        <option value="">Сначала выберите город</option>
+                                    </select>
+                                </div>
+
+                                <!-- Способ оплаты -->
+                                <div class="form-group">
+                                    <label>Способ оплаты <span class="required">*</span></label>
+                                    <select id="payment-method-select" class="form-control" required>
+                                        <option value="">Выберите способ оплаты</option>
+                                        <option value="Онлайн">Онлайн</option>
+                                        <option value="Картой при получении">Картой при получении</option>
+                                        <option value="Наличные">Наличные</option>
+                                    </select>
+                                </div>
+
+                                <!-- Комментарий -->
+                                <div class="form-group">
+                                    <label>Комментарий к заказу</label>
+                                    <textarea id="customer-notes" class="form-control" rows="3" placeholder="Дополнительная информация (необязательно)"></textarea>
+                                </div>
+
+                                <!-- Итоговая сумма -->
+                                <div class="order-summary">
+                                    <div class="order-summary-row">
+                                        <span>Стоимость автомобиля:</span>
+                                        <span id="car-price">—</span>
+                                    </div>
+                                    <div class="order-summary-row">
+                                        <span>Сервисный сбор:</span>
+                                        <span id="service-fee">—</span>
+                                    </div>
+                                    <div class="order-summary-row">
+                                        <span>Доставка:</span>
+                                        <span id="delivery-cost">—</span>
+                                    </div>
+                                    <div class="order-summary-row order-total">
+                                        <span>Итого к оплате:</span>
+                                        <span id="total-amount">—</span>
+                                    </div>
+                                </div>
+
+                                <!-- Кнопка оформления -->
+                                <button id="submit-order-btn" class="btn btn-primary w-100" style="margin-top: 20px;">
+                                    Оформить заказ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', path='js/car_order.js') }}"></script>
+</body>
+</html>
+

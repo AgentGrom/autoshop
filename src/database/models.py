@@ -229,6 +229,9 @@ class Car(Base):
         back_populates="car", 
         cascade="all, delete-orphan"
     )
+    
+    # Связь с заказами
+    car_orders: Mapped[List["CarOrder"]] = relationship("CarOrder", back_populates="car")
 
 # Таблица комплектаций авто
 class CarTrim(Base):
@@ -290,10 +293,13 @@ class UserAddress(Base):
     # Адресные данные
     postal_code: Mapped[str] = mapped_column(String(20), nullable=True)
     country: Mapped[str] = mapped_column(String(50))
+    region: Mapped[str] = mapped_column(String(100), nullable=True)  # Область/регион
     city: Mapped[str] = mapped_column(String(50))
     street: Mapped[str] = mapped_column(String(100))
     house: Mapped[str] = mapped_column(String(10))
     apartment: Mapped[str] = mapped_column(String(10), nullable=True)
+    entrance: Mapped[str] = mapped_column(String(10), nullable=True)  # Подъезд
+    floor: Mapped[str] = mapped_column(String(10), nullable=True)  # Этаж
     
     # Контактная информация для доставки
     recipient_name: Mapped[str] = mapped_column(String(100))
@@ -313,7 +319,8 @@ class Order(Base):
     
     order_id: Mapped[intpk]
     user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"))
-    shipping_address_id: Mapped[int] = mapped_column(ForeignKey("user_addresses.address_id"))
+    shipping_address_id: Mapped[int] = mapped_column(ForeignKey("user_addresses.address_id"), nullable=True)  # Для запчастей
+    pickup_point_id: Mapped[int] = mapped_column(ForeignKey("pickup_points.pickup_point_id"), nullable=True)  # Для автомобилей
     payment_method: Mapped[PaymentMethodEnum] = mapped_column(String(20))
 
     is_paid: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -322,6 +329,7 @@ class Order(Base):
     status_updated: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
     
     shipping_cost: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
+    service_fee: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)  # Сервисный сбор
     discount: Mapped[float] = mapped_column(DECIMAL(10, 2), default=0)
     
     tracking_number: Mapped[str] = mapped_column(String(100), nullable=True)
@@ -332,7 +340,9 @@ class Order(Base):
     
     user: Mapped["User"] = relationship("User", back_populates="orders")
     shipping_address: Mapped["UserAddress"] = relationship("UserAddress", back_populates="orders")
+    pickup_point: Mapped["PickupPoint"] = relationship("PickupPoint", back_populates="orders")
     order_items: Mapped[list["OrderItem"]] = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    car_orders: Mapped[list["CarOrder"]] = relationship("CarOrder", back_populates="order", cascade="all, delete-orphan")
 
 # Таблица заказанных предметов
 class OrderItem(Base):
@@ -346,6 +356,21 @@ class OrderItem(Base):
     
     order: Mapped["Order"] = relationship("Order", back_populates="order_items")
     part: Mapped["Part"] = relationship("Part", back_populates="order_items")
+
+
+# Таблица заказанных автомобилей
+class CarOrder(Base):
+    __tablename__ = "car_orders"
+    
+    car_order_id: Mapped[intpk]
+    order_id: Mapped[int] = mapped_column(ForeignKey("orders.order_id", ondelete="CASCADE"))
+    car_id: Mapped[int] = mapped_column(ForeignKey("cars.car_id", ondelete="CASCADE"))
+    
+    # Сохраняем информацию об автомобиле на момент заказа (для истории)
+    car_price: Mapped[float] = mapped_column(DECIMAL(12, 2))  # Цена на момент заказа
+    
+    order: Mapped["Order"] = relationship("Order", back_populates="car_orders")
+    car: Mapped["Car"] = relationship("Car", back_populates="car_orders")
 
 
 # Таблица изображений
@@ -364,6 +389,35 @@ class Image(Base):
     # Связи
     car: Mapped["Car"] = relationship("Car", back_populates="images")
     part: Mapped["Part"] = relationship("Part", back_populates="images")
+
+
+# Таблица пунктов выдачи (для самовывоза автомобилей)
+class PickupPoint(Base):
+    __tablename__ = "pickup_points"
+    
+    pickup_point_id: Mapped[intpk]
+    country: Mapped[str] = mapped_column(String(50))
+    region: Mapped[str] = mapped_column(String(100))  # Область/регион
+    city: Mapped[str] = mapped_column(String(50))
+    street: Mapped[str] = mapped_column(String(100))
+    house: Mapped[str] = mapped_column(String(10))
+    
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    
+    # Связи
+    orders: Mapped[list["Order"]] = relationship("Order", back_populates="pickup_point")
+
+
+# Таблица настроек системы (key-value для хранения конфигурации)
+class Setting(Base):
+    __tablename__ = "settings"
+    
+    setting_id: Mapped[intpk]
+    key: Mapped[str] = mapped_column(String(100), unique=True)
+    value: Mapped[str] = mapped_column(String(500))
+    description: Mapped[str] = mapped_column(String(200), nullable=True)
+    
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
 # Таблица корзины пользователя

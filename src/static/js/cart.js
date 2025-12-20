@@ -332,11 +332,6 @@ async function clearCart() {
     }
 }
 
-// Оформление заказа (пока заглушка)
-function checkout() {
-    alert('Функция оформления заказа будет реализована позже');
-}
-
 // Утилиты
 function formatPrice(price) {
     return new Intl.NumberFormat('ru-RU').format(price);
@@ -359,7 +354,10 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const checkoutBtn = document.getElementById('checkout-btn');
     if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', checkout);
+        checkoutBtn.addEventListener('click', () => {
+            // Переходим на страницу оформления заказа
+            window.location.href = '/orders/parts';
+        });
     }
 });
 
