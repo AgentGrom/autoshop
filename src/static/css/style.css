@@ -421,6 +421,11 @@ body {
     margin-top: 12px;
 }
 
+/* Карточки запчастей: 2 кнопки одинаковой ширины */
+.item-actions.item-actions-2 .btn {
+    flex: 1;
+}
+
 .btn {
     padding: 8px 16px;
     border: none;
@@ -489,6 +494,13 @@ body {
     padding: 10px 14px;
 }
 
+/* Запчасти: в нижней строке 2 кнопки (Подробнее / В корзину) */
+.part-actions-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 @media (max-width: 768px) {
     .car-card-body {
         flex-direction: column;
@@ -521,6 +533,32 @@ body {
     border: 1px solid #0066cc;
     border-radius: 6px;
     display: inline-block;
+}
+
+/* parts filters: маленькая подсказка под range */
+.hint-small {
+    margin-top: 6px;
+    font-size: 12px;
+    color: #6c757d;
+}
+
+/* Фильтр категорий запчастей: уровни вниз */
+.parts-categories-levels {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.category-level {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.category-level-title {
+    font-weight: 600;
+    font-size: 13px;
+    color: #333;
 }
 
 .see-all:hover {
@@ -1199,7 +1237,22 @@ body {
     padding: 40px 20px;
 }
 
+/* ===== Страница детализации запчасти (используем тот же layout-паттерн, без дублирования) ===== */
+.part-detail-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 40px 20px;
+}
+
 .car-detail-header {
+    text-align: left;
+    margin-bottom: 30px;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.part-detail-header {
     text-align: left;
     margin-bottom: 30px;
     max-width: 900px;
@@ -1213,7 +1266,26 @@ body {
     color: #333;
 }
 
+.part-detail-title {
+    font-size: 32px;
+    font-weight: 700;
+    color: #333;
+}
+
+.part-detail-subtitle {
+    margin-top: 8px;
+    color: #666;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
 .car-detail-carousel {
+    max-width: 900px;
+    margin: 0 auto 30px;
+    position: relative;
+}
+
+.part-detail-carousel {
     max-width: 900px;
     margin: 0 auto 30px;
     position: relative;
@@ -1226,14 +1298,36 @@ body {
     position: relative;
 }
 
+.part-detail-carousel .image-carousel {
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
 /* Для детальной страницы: фиксированная высота контейнера карусели */
 .car-detail-carousel .carousel-wrapper {
     height: 600px;
     background: #f8f9fa;
 }
 
+.part-detail-carousel .carousel-wrapper {
+    height: 600px;
+    background: #f8f9fa;
+}
+
 /* Контролы на всю высоту/ширину (кнопки позиционируются JS) */
 .car-detail-carousel .carousel-controls {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 30;
+}
+
+.part-detail-carousel .carousel-controls {
     position: absolute;
     top: 0;
     left: 0;
@@ -1255,7 +1349,25 @@ body {
     border-radius: 12px;
 }
 
+.part-price-panel {
+    max-width: 900px;
+    margin: 0 auto 20px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 12px;
+}
+
 .car-detail-price {
+    font-size: 36px;
+    font-weight: 700;
+    color: #0066cc;
+}
+
+.part-detail-price {
     font-size: 36px;
     font-weight: 700;
     color: #0066cc;
@@ -1274,13 +1386,48 @@ body {
     white-space: nowrap;
 }
 
+.part-buy-btn {
+    background: #0066cc;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 16px 48px;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+}
+
 .car-buy-btn:hover {
     background: #0052a3;
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
 }
 
+.part-buy-btn:hover {
+    background: #0052a3;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.part-desc-section {
+    max-width: 900px;
+    margin: 0 auto 30px;
+    color: #333;
+    line-height: 1.6;
+}
+
 .car-specs-section {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.part-specs-section {
     max-width: 900px;
     margin: 0 auto;
     background: white;
@@ -1298,7 +1445,22 @@ body {
     border-bottom: 2px solid #e0e0e0;
 }
 
+.part-specs-title {
+    font-size: 28px;
+    font-weight: 700;
+    color: #333;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
 .car-specs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 15px;
+}
+
+.part-specs-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 15px;
@@ -1313,7 +1475,20 @@ body {
     transition: all 0.2s;
 }
 
+.part-spec-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 12px 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
 .car-spec-item:hover {
+    background: #e9ecef;
+}
+
+.part-spec-item:hover {
     background: #e9ecef;
 }
 
@@ -1322,7 +1497,18 @@ body {
     color: #666;
 }
 
+.part-spec-label {
+    font-weight: 600;
+    color: #666;
+}
+
 .car-spec-value {
+    font-weight: 500;
+    color: #333;
+    text-align: right;
+}
+
+.part-spec-value {
     font-weight: 500;
     color: #333;
     text-align: right;
@@ -1364,7 +1550,15 @@ body {
         font-size: 24px;
     }
 
+    .part-detail-title {
+        font-size: 24px;
+    }
+
     .car-detail-carousel .carousel-wrapper {
+        height: 350px;
+    }
+
+    .part-detail-carousel .carousel-wrapper {
         height: 350px;
     }
 
@@ -1373,7 +1567,16 @@ body {
         text-align: center;
     }
 
+    .part-price-panel {
+        grid-template-columns: 1fr;
+        text-align: center;
+    }
+
     .car-detail-price {
+        font-size: 28px;
+    }
+
+    .part-detail-price {
         font-size: 28px;
     }
 
@@ -1381,7 +1584,220 @@ body {
         width: 100%;
     }
 
+    .part-buy-btn {
+        width: 100%;
+    }
+
     .car-specs-grid {
         grid-template-columns: 1fr;
+    }
+
+    .part-specs-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Стили для корзины */
+.cart-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.cart-item {
+    display: grid;
+    grid-template-columns: 120px 1fr auto auto auto;
+    gap: 20px;
+    padding: 20px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+.cart-item-image {
+    width: 120px;
+    height: 120px;
+    overflow: hidden;
+    border-radius: 8px;
+    background: #f5f5f5;
+}
+
+.cart-item-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cart-item-info {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.cart-item-name {
+    font-size: 18px;
+    font-weight: 600;
+    color: #333;
+    margin: 0;
+}
+
+.cart-item-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 14px;
+    color: #666;
+}
+
+.cart-item-price {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 8px;
+}
+
+.cart-item-price-single {
+    font-size: 14px;
+    color: #666;
+}
+
+.cart-item-price-total {
+    font-size: 20px;
+    font-weight: 600;
+    color: #0066cc;
+}
+
+.cart-item-quantity {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.quantity-btn {
+    width: 32px;
+    height: 32px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.quantity-btn:hover {
+    background: #f0f0f0;
+    border-color: #0066cc;
+}
+
+.quantity-input {
+    width: 60px;
+    height: 32px;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.cart-item-remove {
+    display: flex;
+    align-items: center;
+}
+
+.btn-remove {
+    width: 32px;
+    height: 32px;
+    border: none;
+    background: #ff4444;
+    color: white;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+}
+
+.btn-remove:hover {
+    background: #cc0000;
+}
+
+.cart-summary {
+    margin-top: 30px;
+    padding: 20px;
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+}
+
+.cart-summary-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 10px 0;
+    font-size: 16px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.cart-summary-row:last-of-type {
+    border-bottom: none;
+}
+
+.cart-total {
+    font-size: 20px;
+    font-weight: 600;
+    color: #0066cc;
+    margin-top: 10px;
+    padding-top: 15px;
+    border-top: 2px solid #0066cc;
+}
+
+.cart-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 20px;
+    justify-content: flex-end;
+}
+
+.cart-actions .btn {
+    min-width: 150px;
+}
+
+@media (max-width: 768px) {
+    .cart-item {
+        grid-template-columns: 100px 1fr;
+        gap: 15px;
+    }
+
+    .cart-item-image {
+        width: 100px;
+        height: 100px;
+    }
+
+    .cart-item-price,
+    .cart-item-quantity,
+    .cart-item-remove {
+        grid-column: 1 / -1;
+        justify-self: start;
+    }
+
+    .cart-item-quantity {
+        margin-top: 10px;
+    }
+
+    .cart-item-remove {
+        margin-top: 10px;
+    }
+
+    .cart-actions {
+        flex-direction: column;
+    }
+
+    .cart-actions .btn {
+        width: 100%;
     }
 }

@@ -124,7 +124,7 @@ function createCarCard(car) {
                 <div class="image-carousel">
                     <div class="carousel-wrapper">
                         ${sortedImages.map(image =>
-                            `<img src="${image.url}" alt="${car.trim.brand_name} ${car.trim.model_name}" class="carousel-image">`
+                            `<img src="${image.url}" alt="${car.trim.brand_name} ${car.trim.model_name}" class="carousel-image" onerror="this.onerror=null;this.src='/static/images/cars/base.jpeg';">`
                         ).join('')}
                     </div>
                     <div class="carousel-controls">
@@ -139,7 +139,7 @@ function createCarCard(car) {
             imagesHtml = `
                 <div class="image-carousel">
                     <div class="carousel-wrapper">
-                        <img src="${sortedImages[0].url}" alt="${car.trim.brand_name} ${car.trim.model_name}" class="carousel-image">
+                        <img src="${sortedImages[0].url}" alt="${car.trim.brand_name} ${car.trim.model_name}" class="carousel-image" onerror="this.onerror=null;this.src='/static/images/cars/base.jpeg';">
                     </div>
                 </div>
             `;
@@ -157,16 +157,19 @@ function createCarCard(car) {
 
     const price = car.price ? parseFloat(car.price).toLocaleString('ru-RU') : 'Цена по запросу';
 
+    const mileage = (car.mileage !== null && car.mileage !== undefined) ? `${parseInt(car.mileage).toLocaleString('ru-RU')} км` : '—';
+    const color = car.color || '—';
+
     carCard.innerHTML =
         imagesHtml +
-        `<h3 class="item-title">${car.trim.brand_name} ${car.trim.model_name} ${car.trim.trim_name || ''}</h3>` +
-        `<div class="item-info">Пробег: ${parseInt(car.mileage).toLocaleString('ru-RU')} км</div>` +
+        `<h3 class="item-title">${car.trim.brand_name} ${car.trim.model_name}</h3>` +
+        `<div class="item-info">Пробег: ${mileage}</div>` +
+        `<div class="item-info">Цвет: ${color}</div>` +
         `<div class="item-info">Состояние: ${car.condition}</div>` +
         `<div class="item-info">Год: ${car.production_year}</div>` +
         `<div class="item-price">${price} ₽</div>` +
         `<div class="item-actions">
-            <a href="/cars/${car.car_id}" class="btn btn-primary">Подробнее</a>
-            <button class="btn btn-secondary">В избранное</button>
+            <a href="/cars/${car.car_id}" class="btn btn-primary">Подробнее об автомобиле</a>
         </div>`;
 
     return carCard;
@@ -213,6 +216,116 @@ async function loadHomeCars() {
     }
 }
 
+// Функция для создания карточки запчасти (как в части запчастей, но компактно для главной)
+function createPartCard(part) {
+    const partCard = document.createElement('div');
+    partCard.className = 'item-card';
+
+    let imagesHtml = '';
+    if (part.images && part.images.length > 0) {
+        const sortedImages = [...part.images].sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0));
+        if (sortedImages.length > 1) {
+            imagesHtml = `
+                <div class="image-carousel">
+                    <div class="carousel-wrapper">
+                        ${sortedImages.map(img => `<img src="${img.url}" alt="${img.alt_text || part.part_name}" class="carousel-image">`).join('')}
+                    </div>
+                    <div class="carousel-controls">
+                        <button class="carousel-btn carousel-prev">‹</button>
+                        <button class="carousel-btn carousel-next">›</button>
+                    </div>
+                    <div class="carousel-indicators"></div>
+                </div>
+            `;
+        } else {
+            imagesHtml = `
+                <div class="image-carousel">
+                    <div class="carousel-wrapper">
+                        <img src="${sortedImages[0].url}" alt="${sortedImages[0].alt_text || part.part_name}" class="carousel-image">
+                    </div>
+                </div>
+            `;
+        }
+    } else {
+        imagesHtml = `
+            <div class="image-carousel">
+                <div class="carousel-wrapper">
+                    <img src="/static/images/parts/base.png" alt="Фото отсутствует" class="carousel-image">
+                </div>
+            </div>
+        `;
+    }
+
+    const price = part.price ? Number(part.price).toLocaleString('ru-RU') : 'Цена по запросу';
+    const manufacturer = part.manufacturer || '—';
+    const article = part.part_article || '—';
+    const category = (part.category && part.category.category_name) ? part.category.category_name : '—';
+    const stock = (part.stock_count === null || part.stock_count === undefined) ? '—' : `${part.stock_count} шт`;
+
+    partCard.innerHTML =
+        imagesHtml +
+        `<h3 class="item-title">${part.part_name || ''}</h3>` +
+        `<div class="item-info">Производитель: ${manufacturer}</div>` +
+        `<div class="item-info">Артикул: ${article}</div>` +
+        `<div class="item-info">Категория: ${category}</div>` +
+        `<div class="item-info">В наличии: ${stock}</div>` +
+        `<div class="item-price">${price}${price === 'Цена по запросу' ? '' : ' ₽'}</div>` +
+        `<div class="item-actions">
+            <button class="btn btn-primary" data-add-part="${part.part_id}">В корзину</button>
+            <a href="/parts/${part.part_id}" class="btn btn-secondary">Подробнее</a>
+        </div>`;
+
+    // Добавление в корзину
+    const btn = partCard.querySelector('[data-add-part]');
+    if (btn) {
+        btn.addEventListener('click', async () => {
+            try {
+                // Используем универсальную функцию из cart_utils.js
+                if (typeof window.addToCart === 'function') {
+                    await window.addToCart(part.part_id, 1);
+                } else {
+                    alert('Для добавления товара в корзину необходимо войти в аккаунт');
+                }
+            } catch (err) {
+                console.error('Ошибка добавления в корзину:', err);
+                alert('Ошибка добавления товара в корзину');
+            }
+        });
+    }
+
+    return partCard;
+}
+
+// Загрузка запчастей для главной страницы
+async function loadHomeParts() {
+    try {
+        const response = await fetch('/api/home-parts');
+        const data = await response.json();
+
+        const container = document.getElementById('home-parts-container');
+        const loader = document.getElementById('home-parts-loader');
+
+        loader.style.display = 'none';
+
+        if (data.parts && data.parts.length > 0) {
+            container.innerHTML = '';
+            data.parts.forEach(part => {
+                container.appendChild(createPartCard(part));
+            });
+            initializeCarousels();
+        } else {
+            const fallback = document.getElementById('home-parts-fallback');
+            fallback.style.display = 'block';
+        }
+    } catch (error) {
+        console.error('Ошибка при загрузке запчастей:', error);
+        const loader = document.getElementById('home-parts-loader');
+        const fallback = document.getElementById('home-parts-fallback');
+        if (loader) loader.style.display = 'none';
+        if (fallback) fallback.style.display = 'block';
+    }
+}
+
 // Инициализация карусели при загрузке страницы
 function initializeCarousels() {
     const carousels = document.querySelectorAll('.image-carousel');
@@ -223,6 +336,28 @@ function initializeCarousels() {
         const prevBtn = carousel.querySelector('.carousel-prev');
         const nextBtn = carousel.querySelector('.carousel-next');
         const controls = carousel.querySelector('.carousel-controls');
+
+        // Базовые стили должны применяться всегда (даже если фото одно),
+        // иначе появляется "зазор" внизу из-за естественной высоты img.
+        const wrapper = carousel.querySelector('.carousel-wrapper');
+        if (wrapper) {
+            wrapper.style.position = 'relative';
+            wrapper.style.overflow = 'hidden';
+            wrapper.style.width = '100%';
+            wrapper.style.height = '300px';
+        }
+
+        images.forEach((img, index) => {
+            img.style.position = 'absolute';
+            img.style.top = '0';
+            img.style.left = '0';
+            img.style.width = '100%';
+            img.style.height = '300px';
+            img.style.objectFit = 'contain';
+            img.style.display = 'block';
+            img.style.opacity = index === 0 ? '1' : '0';
+            img.style.transition = 'opacity 0.5s ease-in-out';
+        });
 
         // Если изображений меньше 2, скрываем элементы управления
         if (images.length <= 1) {
@@ -239,25 +374,7 @@ function initializeCarousels() {
         let currentIndex = 0;
         let isAnimating = false; // Флаг анимации
 
-        // Устанавливаем стили для обертки
-        const wrapper = carousel.querySelector('.carousel-wrapper');
-        wrapper.style.position = 'relative';
-        wrapper.style.overflow = 'hidden';
-        wrapper.style.width = '100%';
-        wrapper.style.height = '300px'; // Увеличенная высота для больших изображений
-
-        // Устанавливаем стили для изображений
-        images.forEach((img, index) => {
-            img.style.position = 'absolute';
-            img.style.top = '0';
-            img.style.left = '0';
-            img.style.width = '100%';
-            img.style.height = '300px'; // Увеличенная высота
-            img.style.objectFit = 'cover';
-            img.style.display = 'block';
-            img.style.opacity = index === 0 ? '1' : '0'; // Только первое изображение видно
-            img.style.transition = 'opacity 0.5s ease-in-out';
-        });
+        // (wrapper/img стили выставлены выше; здесь остаётся логика индикаторов/кнопок/автоплея)
 
         // Создаем индикаторы внутри wrapper для правильного z-index
         const indicatorsWrapper = document.createElement('div');
@@ -416,8 +533,13 @@ function initializeCarousels() {
 document.addEventListener('DOMContentLoaded', function() {
     initializeCarousels();
 
-    // Загружаем автомобили на главной странице
+    // Загружаем автомобили на главной странице (как было раньше)
     if (document.getElementById('home-cars-container')) {
         loadHomeCars();
+    }
+
+    // Загружаем запчасти на главной странице
+    if (document.getElementById('home-parts-container')) {
+        loadHomeParts();
     }
 });

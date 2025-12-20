@@ -1,8 +1,8 @@
 import json
-from functools import lru_cache
-from typing import Dict, List, Optional, Set, Union, Literal
+from typing import Dict, List, Optional, Set, Union, Literal, Tuple
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import delete, select, or_, and_, func, insert
+from sqlalchemy import delete, select, or_, and_, func, insert, case, cast
+from sqlalchemy import Float
 from sqlalchemy.orm import selectinload
 from dataclasses import asdict
 
@@ -14,42 +14,47 @@ FilterType = Literal["range", "options"]
 
 
 # --- КЭШИРОВАНИЕ СПЕЦИФИКАЦИЙ ПО КАТЕГОРИИ ---
-@lru_cache(maxsize=128)
-def _get_specs_cache_key(category_id: int, hash_salt: str = "") -> str:
-    """
-    Вспомогательная функция для кэширования.
-    Используем lru_cache по category_id.
-    hash_salt — чтобы инвалидировать при обновлении (опционально)
-    """
-    # Мы не можем кэшировать async функцию напрямую, поэтому обернём
-    return ""
+# Важно: нельзя использовать lru_cache на async-функциях с параметром session.
+# Делаем простой in-memory cache по category_id и очищаем его при CRUD.
+_SPECS_CACHE: Dict[int, Dict[str, List[Tuple[str, Optional[str]]]]] = {}
+_FILTERS_CACHE: Dict[int, Dict[str, Dict]] = {}
 
 
-@lru_cache(maxsize=128)
-async def get_specs_for_category_cached(
+def clear_parts_filters_cache() -> None:
+    _SPECS_CACHE.clear()
+    _FILTERS_CACHE.clear()
+
+
+async def get_specs_for_category(
     session: AsyncSession,
     category_id: int
-) -> Dict[str, List[str]]:
+) -> Dict[str, List[Tuple[str, Optional[str]]]]:
     """
-    Возвращает все уникальные spec_name и spec_value для категории.
-    Результат кэшируется в памяти.
+    Возвращает уникальные спецификации для ТОЛЬКО ЭТОЙ категории (без подкатегорий):
+    spec_name -> list[(spec_value, spec_unit)]
     """
+    if category_id in _SPECS_CACHE:
+        return _SPECS_CACHE[category_id]
+
     result = await session.execute(
-        select(PartSpecification.spec_name, PartSpecification.spec_value)
+        select(PartSpecification.spec_name, PartSpecification.spec_value, PartSpecification.spec_unit)
         .join(Part)
         .where(Part.category_id == category_id)
         .distinct()
     )
     rows = result.fetchall()
 
-    specs: Dict[str, Set[str]] = {}
-    for name, value in rows:
+    specs: Dict[str, Set[Tuple[str, Optional[str]]]] = {}
+    for name, value, unit in rows:
+        if not name or value is None:
+            continue
         if name not in specs:
             specs[name] = set()
-        specs[name].add(value)
+        specs[name].add((str(value), str(unit) if unit else None))
 
-    # Сортируем значения
-    return {name: sorted(values) for name, values in specs.items()}
+    normalized = {name: sorted(values) for name, values in specs.items()}
+    _SPECS_CACHE[category_id] = normalized
+    return normalized
 
 def detect_spec_type(values: List[str]) -> FilterType:
     if not values:
@@ -68,24 +73,95 @@ def detect_spec_type(values: List[str]) -> FilterType:
     return "range" if ratio >= 0.5 else "options"
 
 
-@lru_cache(maxsize=128)
 async def get_filters_config_for_category(
     session: AsyncSession,
     category_id: int
 ) -> Dict[str, Dict]:
     """
-    Возвращает типы фильтров по категориям: диапазон или выбор.
-    Использует кэшированные спецификации.
+    Возвращает типы фильтров по категории: диапазон или выбор.
+    Фильтры строятся ТОЛЬКО по спецификациям товаров в этой категории (без детей).
     """
-    specs = await get_specs_for_category_cached(session, category_id)
+    if category_id in _FILTERS_CACHE:
+        return _FILTERS_CACHE[category_id]
+
+    specs = await get_specs_for_category(session, category_id)
     config = {}
     for name, values in specs.items():
-        spec_type = detect_spec_type(values)
-        config[name] = {
-            "type": spec_type,
-            "values": sorted(set(values)) if spec_type == "options" else None
-        }
+        only_values = [v for (v, _u) in values]
+        spec_type = detect_spec_type(only_values)
+
+        if spec_type == "options":
+            # Склеиваем value + unit в одну строку (если unit есть) и делаем уникальными
+            rendered = []
+            for v, u in values:
+                rendered.append(f"{v} {u}".strip() if u else v)
+            config[name] = {"type": "options", "values": sorted(set(rendered))}
+            continue
+
+        # range: пытаемся извлечь числа
+        nums = []
+        units = []
+        for v, u in values:
+            cleaned = re.sub(r"[^\d.,-]", "", v.replace(",", "."))
+            if not cleaned:
+                continue
+            try:
+                nums.append(float(cleaned))
+                if u:
+                    units.append(u)
+            except (ValueError, OverflowError):
+                continue
+
+        if not nums:
+            # fallback
+            config[name] = {"type": "options", "values": sorted(set([vv for (vv, _uu) in values]))}
+        else:
+            unit = None
+            if units:
+                # самый частый unit
+                unit = max(set(units), key=units.count)
+            config[name] = {"type": "range", "min": min(nums), "max": max(nums), "unit": unit}
+
+    _FILTERS_CACHE[category_id] = config
     return config
+
+
+# --- КАТЕГОРИИ / ПОДКАТЕГОРИИ ---
+async def get_categories_tree(session: AsyncSession) -> List[dict]:
+    """
+    Возвращает дерево категорий: parent -> children, с флагом is_leaf.
+    """
+    res = await session.execute(select(PartCategory.category_id, PartCategory.category_name, PartCategory.parent_id))
+    rows = res.fetchall()
+
+    nodes = {cid: {"category_id": cid, "category_name": name, "parent_id": pid, "children": [], "is_leaf": True} for cid, name, pid in rows}
+    for cid, name, pid in rows:
+        if pid is not None and pid in nodes:
+            nodes[pid]["children"].append(nodes[cid])
+            nodes[pid]["is_leaf"] = False
+
+    # top-level
+    top = [n for n in nodes.values() if n["parent_id"] is None]
+    # сортировка
+    def sort_children(n):
+        n["children"].sort(key=lambda x: x["category_name"])
+        for c in n["children"]:
+            sort_children(c)
+
+    top.sort(key=lambda x: x["category_name"])
+    for n in top:
+        sort_children(n)
+    return top
+
+
+async def is_leaf_category(session: AsyncSession, category_id: int) -> bool:
+    """
+    Категория leaf, если у неё нет дочерних категорий.
+    """
+    res = await session.execute(
+        select(func.count(PartCategory.category_id)).where(PartCategory.parent_id == category_id)
+    )
+    return (res.scalar() or 0) == 0
 
 
 # --- РЕКУРСИВНЫЙ ПОИСК ПОДКАТЕГОРИЙ ---
@@ -174,20 +250,56 @@ async def search_parts(
 
 
 # --- ФИЛЬТРАЦИЯ ПО СПЕЦИФИКАЦИЯМ ---
-def build_spec_conditions(specs_filter: Dict[str, Union[str, List[str]]]) -> List:
+def _numeric_value_expr():
     """
-    Строит условия: у запчасти есть спецификация с таким именем и значением.
+    SQL выражение для безопасного извлечения числа из PartSpecification.spec_value (PostgreSQL).
+    Возвращает float или NULL, если распарсить нельзя.
+    """
+    # 1) оставляем только цифры/знак/запятую/точку
+    cleaned = func.regexp_replace(PartSpecification.spec_value, r"[^0-9,\\.\\-]", "", "g")
+    # 2) заменяем запятую на точку
+    cleaned = func.replace(cleaned, ",", ".")
+    # 3) NULL если пусто
+    cleaned = func.nullif(cleaned, "")
+    # 4) кастуем только если это валидное число вида -12.34
+    # Используем класс [0-9], чтобы не зависеть от поддержки \d в postgres regex
+    is_number = cleaned.op("~")(r"^-?[0-9]+(\\.[0-9]+)?$")
+    return case((is_number, cast(cleaned, Float)), else_=None)
+
+
+def build_spec_conditions(specs_filter: Dict[str, Union[str, List[str], Dict]]) -> List:
+    """
+    Строит условия:
+    - options: у запчасти есть спецификация с таким именем и значением (IN)
+    - range: у запчасти есть спецификация с таким именем и числовым значением в диапазоне
     """
     conditions = []
     for spec_name, spec_values in specs_filter.items():
+        # range: {"min": 10, "max": 20}
+        if isinstance(spec_values, dict):
+            min_v = spec_values.get("min", None)
+            max_v = spec_values.get("max", None)
+            num_expr = _numeric_value_expr()
+
+            range_conds = [PartSpecification.spec_name == spec_name, num_expr.is_not(None)]
+            if min_v is not None:
+                range_conds.append(num_expr >= float(min_v))
+            if max_v is not None:
+                range_conds.append(num_expr <= float(max_v))
+
+            subq = select(PartSpecification.part_id).where(and_(*range_conds))
+            conditions.append(Part.part_id.in_(subq))
+            continue
+
+        # options: "X" или ["X","Y"]
         if isinstance(spec_values, str):
             spec_values = [spec_values]
 
+        if not isinstance(spec_values, list) or len(spec_values) == 0:
+            continue
+
         subq = select(PartSpecification.part_id).where(
-            and_(
-                PartSpecification.spec_name == spec_name,
-                PartSpecification.spec_value.in_(spec_values)
-            )
+            and_(PartSpecification.spec_name == spec_name, PartSpecification.spec_value.in_(spec_values))
         )
         conditions.append(Part.part_id.in_(subq))
     return conditions
@@ -363,12 +475,26 @@ async def create_part(
             session.add(img)
 
     # Инвалидируем кэш спецификаций для этой категории
-    get_specs_for_category_cached.cache_clear()
-    get_filters_config_for_category.cache_clear()
+    clear_parts_filters_cache()
 
     await session.commit()
     await session.refresh(part)
     return part
+
+
+async def get_part_by_id(session: AsyncSession, part_id: int) -> Optional[Part]:
+    """
+    Возвращает одну запчасть по part_id вместе с category, specifications и images.
+    """
+    stmt = (
+        select(Part)
+        .where(Part.part_id == part_id)
+        .options(selectinload(Part.category))
+        .options(selectinload(Part.specifications))
+        .options(selectinload(Part.images))
+    )
+    res = await session.execute(stmt)
+    return res.scalars().first()
 
 
 async def update_part(
@@ -419,8 +545,7 @@ async def update_part(
             session.add(img)
 
     # Сброс кэша
-    get_specs_for_category_cached.cache_clear()
-    get_filters_config_for_category.cache_clear()
+    clear_parts_filters_cache()
 
     await session.commit()
     await session.refresh(part)
@@ -448,8 +573,7 @@ async def delete_part(
     await session.delete(part)
 
     # Сброс кэша
-    get_specs_for_category_cached.cache_clear()
-    get_filters_config_for_category.cache_clear()
+    clear_parts_filters_cache()
 
     await session.commit()
     return True

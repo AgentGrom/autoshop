@@ -22,9 +22,7 @@
                     <a href="/about">О нас</a>
                 </div>
                 <div class="nav-right">
-                    <a href="/login">Вход</a>
-                    <a href="/register">Регистрация</a>
-                    <a href="/cart">Корзина <span class="cart-count">(0)</span></a>
+                    <!-- Навигация будет обновлена динамически через auth.js -->
                 </div>
             </div>
         </div>
@@ -75,5 +73,6 @@
             </div>
         </div>
     </div>
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
 </body>
 </html>

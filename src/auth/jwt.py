@@ -2,7 +2,7 @@
 from datetime import datetime, timedelta
 from typing import Optional
 import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Request
 from fastapi.security import OAuth2PasswordBearer
 
 from src.config import JWT_KEY
@@ -24,8 +24,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     Создаёт JWT-токен.
     """
     to_encode = data.copy()
-    expire = datetime.now() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
-    to_encode.update({"exp": expire})
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    to_encode.update({"exp": int(expire.timestamp())})  # exp должен быть timestamp (int)
     return jwt.encode(to_encode, JWT_KEY, algorithm=ALGORITHM)
 
 
@@ -50,6 +50,38 @@ async def get_current_user(
     except jwt.PyJWTError:
         raise credentials_exception
 
+    user = await get_user_by_email(session, email=email)
+    if user is None:
+        raise credentials_exception
+    return user
+
+
+async def get_current_user_from_cookie(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session)
+):
+    """
+    Получает текущего пользователя из cookie (для веб-интерфейса).
+    Используется как зависимость для роутеров, которые работают с cookie.
+    """
+    
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Не авторизован",
+    )
+    
+    token = request.cookies.get("access_token")
+    if not token:
+        raise credentials_exception
+    
+    try:
+        payload = jwt.decode(token, JWT_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
     user = await get_user_by_email(session, email=email)
     if user is None:
         raise credentials_exception

@@ -65,9 +65,10 @@ async def register(
     }
     user = await create_user(session, user_data)
 
-    # 4. Перенаправляем на вход (можно сделать redirect, но пока — через шаблон)
+    # 4. Перенаправляем на вход
     return RedirectResponse(
-        "/login"
+        url="/api/auth/login",
+        status_code=303
     )
 
 
@@ -101,9 +102,60 @@ async def login(
             status_code=401
         )
 
-    # 3. Успешный вход — Генерируем токен
+    # 3. Успешный вход — Генерируем токен и сохраняем в cookie
     access_token = create_access_token(data={"sub": user.email})
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
+    response = RedirectResponse(url="/", status_code=303)
+    # Сохраняем токен в HTTP-only cookie для безопасности
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        httponly=True,
+        max_age=60 * 60 * 24 * 7,  # 7 дней
+        samesite="lax",
+        secure=False  # Установите True in production с HTTPS
+    )
+    return response
+
+
+@router.get("/logout")
+async def logout(request: Request):
+    """Выход из аккаунта - удаляет токен из cookie"""
+    response = RedirectResponse(url="/", status_code=303)
+    response.delete_cookie(key="access_token")
+    return response
+
+
+@router.get("/me")
+async def get_current_user_info(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получает информацию о текущем пользователе"""
+    from src.repositories.user_repo import get_user_by_email
+    import jwt
+    from src.config import JWT_KEY
+    
+    token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    
+    try:
+        payload = jwt.decode(token, JWT_KEY, algorithms=["HS256"])
+        email = payload.get("sub")
+        if not email:
+            raise HTTPException(status_code=401, detail="Неверный токен")
+        
+        user = await get_user_by_email(session, email)
+        if not user:
+            raise HTTPException(status_code=401, detail="Пользователь не найден")
+        
+        return {
+            "user_id": user.user_id,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "middle_name": user.middle_name,
+            "role": user.role
+        }
+    except jwt.PyJWTError:
+        raise HTTPException(status_code=401, detail="Неверный токен")

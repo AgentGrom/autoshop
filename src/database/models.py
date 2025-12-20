@@ -162,6 +162,7 @@ class Part(Base):
     specifications: Mapped[List['PartSpecification']] = relationship('PartSpecification', back_populates="part") 
 
     order_items: Mapped[List["OrderItem"]] = relationship("OrderItem", back_populates="part")
+    cart_items: Mapped[List["CartItem"]] = relationship("CartItem", back_populates="part")
 
     # Связь с таблицей изображений
     images: Mapped[List["Image"]] = relationship(
@@ -276,6 +277,7 @@ class User(Base):
     # Связи
     addresses: Mapped[list["UserAddress"]] = relationship("UserAddress", back_populates="user")
     orders: Mapped[list["Order"]] = relationship("Order", back_populates="user")
+    cart_items: Mapped[list["CartItem"]] = relationship("CartItem", back_populates="user", cascade="all, delete-orphan")
 
 # Адреса пользователей
 class UserAddress(Base):
@@ -362,3 +364,20 @@ class Image(Base):
     # Связи
     car: Mapped["Car"] = relationship("Car", back_populates="images")
     part: Mapped["Part"] = relationship("Part", back_populates="images")
+
+
+# Таблица корзины пользователя
+class CartItem(Base):
+    __tablename__ = "cart_items"
+    
+    cart_item_id: Mapped[intpk]
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.user_id", ondelete="CASCADE"))
+    part_id: Mapped[int] = mapped_column(ForeignKey("parts.part_id", ondelete="CASCADE"))
+    quantity: Mapped[int] = mapped_column(Integer, default=1)
+    
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
+    
+    # Связи
+    user: Mapped["User"] = relationship("User", back_populates="cart_items")
+    part: Mapped["Part"] = relationship("Part", back_populates="cart_items")

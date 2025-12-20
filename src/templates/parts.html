@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Запчасти - AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts" class="active">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <!-- Навигация будет обновлена динамически через auth.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Поиск -->
+    <div class="search-section">
+        <div class="container">
+            <h1 class="search-title">🔧 Запчасти</h1>
+            <div class="search-wrapper">
+                <form class="search-form" id="parts-search-form">
+                    <div class="search-input-group">
+                        <div class="search-input-wrapper">
+                            <input type="text" class="search-input" id="parts-search-input" placeholder="Введите название, артикул или производителя..." autocomplete="off">
+                            <button type="button" class="clear-btn" id="parts-search-clear" title="Очистить поле">✕</button>
+                        </div>
+                        <button type="submit" class="search-btn">
+                            <span class="search-icon">🔍</span>
+                            <span class="search-text">Найти</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            <div class="search-hint">
+                <span id="parts-search-hint">Ищите запчасти по названию, артикулу, производителю</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <!-- Панель управления фильтрами -->
+            <div class="cars-toolbar">
+                <button id="open-filters" class="btn btn-secondary filters-toggle-btn">
+                    Фильтры
+                </button>
+                <div id="active-filters" class="filter-chips-container"></div>
+            </div>
+
+            <!-- Оверлей фильтров (категории + спецификации) -->
+            <div id="filters-overlay" class="filters-overlay" aria-hidden="true">
+                <div class="filters-panel">
+                    <div class="filters-header">
+                        <h2>Фильтры по запчастям</h2>
+                        <button id="close-filters" class="filters-close-btn" aria-label="Закрыть">✕</button>
+                    </div>
+                    <div class="filters-body">
+                        <div class="filters-section">
+                            <h3>Категории</h3>
+                            <div id="parts-categories-levels" class="parts-categories-levels"></div>
+                        </div>
+
+                        <div class="filters-section" id="parts-specs-section" style="display: none;">
+                            <h3>Характеристики (для выбранной подкатегории)</h3>
+                            <div class="filters-grid" id="parts-specs-grid"></div>
+                        </div>
+                    </div>
+                    <div class="filters-footer">
+                        <button id="reset-filters" class="btn btn-secondary">Сбросить</button>
+                        <button id="apply-filters" class="btn btn-primary">Применить</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="cars-container">
+                <div class="cars-grid" id="parts-grid">
+                    <div class="loader" id="loader">
+                        <div class="spinner"></div>
+                        <p>Загрузка запчастей...</p>
+                    </div>
+                </div>
+                <div class="loader" id="infinite-loader" style="display: none; text-align: center; padding: 20px;">
+                    <div class="spinner"></div>
+                    <p>Загрузка запчастей...</p>
+                </div>
+                <div class="page-end" id="end-message" style="display: none;">
+                    <p>Вы просмотрели все доступные запчасти</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                    <a href="/docs/api">REST API документация</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+                <p>Курсовая работа по базам данных</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', path='js/cart_utils.js') }}"></script>
+    <script src="{{ url_for('static', path='js/parts.js') }}"></script>
+</body>
+</html>
+
+

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Корзина — AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                </div>
+                <div class="nav-right">
+                    <!-- Навигация будет обновлена динамически через auth.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="cart-container">
+                <div class="block-header">
+                    <h2>🛒 Корзина</h2>
+                </div>
+                
+                <div class="block-content">
+                    <!-- Загрузка -->
+                    <div id="cart-loader" class="loader" style="display: flex; justify-content: center; align-items: center; padding: 40px;">
+                        <div class="spinner"></div>
+                        <p style="margin-left: 10px;">Загрузка корзины...</p>
+                    </div>
+
+                    <!-- Пустая корзина -->
+                    <div id="cart-empty" style="display: none; text-align: center; padding: 40px;">
+                        <p style="font-size: 18px; color: #666; margin-bottom: 20px;">Ваша корзина пуста</p>
+                        <a href="/parts" class="btn btn-primary">Перейти к запчастям</a>
+                    </div>
+
+                    <!-- Товары в корзине -->
+                    <div id="cart-items-container" style="display: none;">
+                        <div id="cart-items-list"></div>
+                        
+                        <!-- Итого -->
+                        <div class="cart-summary">
+                            <div class="cart-summary-row">
+                                <span>Товаров в корзине:</span>
+                                <span id="cart-total-items">0</span>
+                            </div>
+                            <div class="cart-summary-row cart-total">
+                                <span>Итого:</span>
+                                <span id="cart-total-price">0 ₽</span>
+                            </div>
+                            <div class="cart-actions">
+                                <button id="clear-cart-btn" class="btn btn-secondary">Очистить корзину</button>
+                                <button id="checkout-btn" class="btn btn-primary">Оформить заказ</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Ошибка -->
+                    <div id="cart-error" style="display: none; text-align: center; padding: 40px; color: #d32f2f;">
+                        <p id="cart-error-message"></p>
+                        <a href="/api/auth/login" class="btn btn-primary" style="margin-top: 20px;">Войти в аккаунт</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', path='js/cart.js') }}"></script>
+</body>
+</html>
+
