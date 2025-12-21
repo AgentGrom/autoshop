@@ -151,7 +151,10 @@ async def cancel_order(
     stmt = (
         select(Order)
         .where(Order.order_id == order_id, Order.user_id == current_user.user_id)
-        .options(selectinload(Order.order_items))
+        .options(
+            selectinload(Order.order_items),
+            selectinload(Order.car_orders)
+        )
     )
     result = await session.execute(stmt)
     order = result.scalar_one_or_none()
@@ -183,6 +186,16 @@ async def cancel_order(
                     .values(stock_count=new_stock)
                 )
     
+    # Возвращаем автомобили в список (делаем видимыми)
+    if order.car_orders:
+        from src.database.models import Car
+        for car_order in order.car_orders:
+            await session.execute(
+                update(Car)
+                .where(Car.car_id == car_order.car_id)
+                .values(is_visible=True)
+            )
+    
     # Отменяем заказ (order_items остаются для истории заказа)
     await session.execute(
         update(Order)
@@ -191,9 +204,16 @@ async def cancel_order(
     )
     await session.commit()
     
+    # Формируем сообщение
+    message = "Заказ успешно отменен."
+    if order.order_items:
+        message += " Товары возвращены на склад."
+    if order.car_orders:
+        message += " Автомобиль возвращен в список."
+    
     return {
         "success": True,
-        "message": "Заказ успешно отменен. Товары возвращены на склад."
+        "message": message
     }
 
 
@@ -230,7 +250,35 @@ async def car_order_page(
     
     car = await get_car_by_id(session, car_id)
     if not car:
-        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Автомобиль не найден",
+                "error_code": 404,
+                "error_message": "Автомобиль не найден",
+                "error_description": "Запрашиваемый автомобиль не существует или был удален.",
+                "action_url": "/cars",
+                "action_text": "Вернуться к списку автомобилей"
+            },
+            status_code=404
+        )
+    
+    # Проверяем видимость автомобиля
+    if not car.is_visible:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Автомобиль недоступен",
+                "error_code": 400,
+                "error_message": "Автомобиль недоступен",
+                "error_description": "Этот автомобиль больше не доступен для заказа.",
+                "action_url": "/cars",
+                "action_text": "Вернуться к списку автомобилей"
+            },
+            status_code=400
+        )
     
     return templates.TemplateResponse(
         "car_order.html",
@@ -262,25 +310,12 @@ async def create_car_order(
     if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     
+    # Проверяем видимость автомобиля
+    if not car.is_visible:
+        raise HTTPException(status_code=400, detail="Автомобиль недоступен для заказа")
+    
     if not car.price:
         raise HTTPException(status_code=400, detail="Автомобиль не доступен для заказа (нет цены)")
-    
-    # Проверяем, что автомобиль еще не заказан (не в активных заказах)
-    from sqlalchemy import select
-    from src.database.models import OrderStatusEnum
-    existing_car_order = await session.execute(
-        select(CarOrder)
-        .join(Order)
-        .where(
-            CarOrder.car_id == order_data.car_id,
-            Order.status != OrderStatusEnum.CANCELLED.value
-        )
-    )
-    if existing_car_order.scalar_one_or_none():
-        raise HTTPException(
-            status_code=400,
-            detail="Этот автомобиль уже заказан и недоступен для повторного заказа"
-        )
     
     # Проверяем пункт выдачи
     pickup_point = await get_pickup_point_by_id(session, order_data.pickup_point_id)
@@ -331,6 +366,14 @@ async def create_car_order(
         car_price=car_price
     )
     session.add(car_order)
+    
+    # Помечаем автомобиль как невидимый (скрываем из списка)
+    from sqlalchemy import update
+    await session.execute(
+        update(Car)
+        .where(Car.car_id == car.car_id)
+        .values(is_visible=False)
+    )
     
     await session.commit()
     await session.refresh(order)

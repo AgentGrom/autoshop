@@ -1,16 +1,25 @@
 # src/api/v1/account.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select, update
+from sqlalchemy import select, update, distinct
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
+import os
+import uuid
+from pathlib import Path
+
+try:
+    from PIL import Image as PILImage
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
-from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum
+from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum
 from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -494,11 +503,14 @@ async def update_order_status(
     if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
     
-    # Проверяем, что заказ существует (загружаем order_items для возможной отмены заказа)
+    # Проверяем, что заказ существует (загружаем order_items и car_orders для возможной отмены заказа)
     stmt = (
         select(Order)
         .where(Order.order_id == order_id)
-        .options(selectinload(Order.order_items))
+        .options(
+            selectinload(Order.order_items),
+            selectinload(Order.car_orders)
+        )
     )
     result = await session.execute(stmt)
     order = result.scalar_one_or_none()
@@ -536,7 +548,7 @@ async def update_order_status(
             if current_status != OrderStatusEnum.PROCESSING.value:
                 raise HTTPException(status_code=400, detail="Можно установить статус 'Отправлен' только для заказов со статусом 'В обработке'")
         
-        # Если отменяем заказ, возвращаем товары на склад
+        # Если отменяем заказ, возвращаем товары на склад и автомобили в список
         if status_data.status == OrderStatusEnum.CANCELLED.value:
             if order.order_items:
                 from src.database.models import Part
@@ -551,6 +563,15 @@ async def update_order_status(
                             .where(Part.part_id == item.part_id)
                             .values(stock_count=new_stock)
                         )
+            
+            # Возвращаем автомобили в список (делаем видимыми)
+            if order.car_orders:
+                for car_order in order.car_orders:
+                    await session.execute(
+                        update(Car)
+                        .where(Car.car_id == car_order.car_id)
+                        .values(is_visible=True)
+                    )
         
         update_values["status"] = status_data.status
     
@@ -590,4 +611,372 @@ async def update_order_status(
         "is_paid": status_data.is_paid if status_data.is_paid is not None else order.is_paid,
         "admin_notes": status_data.admin_notes if status_data.admin_notes is not None else order.admin_notes
     }
+
+
+@router.get("/api/car-models")
+async def get_car_models(
+    brand_name: Optional[str] = Query(None),
+    query: Optional[str] = Query(None, description="Поисковый запрос для фильтрации моделей"),
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить список уникальных моделей автомобилей (для автодополнения)"""
+    # Проверяем права доступа (только менеджер или администратор)
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Получаем уникальные модели
+    stmt = select(distinct(CarTrim.model_name)).where(CarTrim.model_name.isnot(None))
+    
+    if brand_name:
+        stmt = stmt.where(CarTrim.brand_name == brand_name)
+    
+    if query:
+        stmt = stmt.where(CarTrim.model_name.ilike(f"%{query}%"))
+    
+    stmt = stmt.order_by(CarTrim.model_name).limit(20)
+    result = await session.execute(stmt)
+    models = [row[0] for row in result.all() if row[0]]
+    
+    return {"models": models}
+
+
+@router.get("/api/car-trims")
+async def get_car_trims(
+    brand_name: Optional[str] = Query(None),
+    model_name: Optional[str] = Query(None),
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить список комплектаций автомобилей по марке и модели"""
+    # Проверяем права доступа (только менеджер или администратор)
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Если указаны марка и модель, фильтруем по ним
+    stmt = select(CarTrim)
+    if brand_name:
+        stmt = stmt.where(CarTrim.brand_name == brand_name)
+    if model_name:
+        stmt = stmt.where(CarTrim.model_name == model_name)
+    
+    stmt = stmt.order_by(CarTrim.brand_name, CarTrim.model_name, CarTrim.trim_name)
+    result = await session.execute(stmt)
+    trims = result.scalars().all()
+    
+    trims_data = []
+    for trim in trims:
+        trim_data = {
+            "trim_id": trim.trim_id,
+            "trim_name": trim.trim_name if trim.trim_name else "",
+            "brand_name": trim.brand_name.value if hasattr(trim.brand_name, 'value') else str(trim.brand_name),
+            "model_name": trim.model_name if trim.model_name else "",
+            "display_name": f"{trim.brand_name.value if hasattr(trim.brand_name, 'value') else str(trim.brand_name)} {trim.model_name or ''} {trim.trim_name or ''}".strip()
+        }
+        trims_data.append(trim_data)
+    
+    return {"trims": trims_data}
+
+
+@router.get("/api/car-trim/{trim_id}")
+async def get_car_trim_detail(
+    trim_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить детальную информацию о комплектации по ID"""
+    # Проверяем права доступа (только менеджер или администратор)
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    result = await session.execute(
+        select(CarTrim).where(CarTrim.trim_id == trim_id)
+    )
+    trim = result.scalar_one_or_none()
+    
+    if not trim:
+        raise HTTPException(status_code=404, detail="Комплектация не найдена")
+    
+    return {
+        "trim_id": trim.trim_id,
+        "trim_name": trim.trim_name if trim.trim_name else None,
+        "brand_name": trim.brand_name.value if hasattr(trim.brand_name, 'value') else str(trim.brand_name),
+        "model_name": trim.model_name if trim.model_name else None,
+        "engine_volume": float(trim.engine_volume) if trim.engine_volume else None,
+        "engine_power": trim.engine_power if trim.engine_power else None,
+        "engine_torque": trim.engine_torque if trim.engine_torque else None,
+        "fuel_type": trim.fuel_type.value if hasattr(trim.fuel_type, 'value') else str(trim.fuel_type) if trim.fuel_type else None,
+        "transmission": trim.transmission.value if hasattr(trim.transmission, 'value') else str(trim.transmission) if trim.transmission else None,
+        "drive_type": trim.drive_type.value if hasattr(trim.drive_type, 'value') else str(trim.drive_type) if trim.drive_type else None,
+        "body_type": trim.body_type.value if hasattr(trim.body_type, 'value') else str(trim.body_type) if trim.body_type else None,
+        "doors": trim.doors if trim.doors else None,
+        "seats": trim.seats if trim.seats else None
+    }
+
+
+class CreateCarRequest(BaseModel):
+    # Для готовой комплектации
+    trim_id: Optional[int] = None
+    
+    # Для новой комплектации
+    new_trim: Optional[dict] = None  # {"brand_name": "...", "model_name": "...", ...}
+    
+    # Данные автомобиля
+    vin: str
+    production_year: int
+    condition: str
+    mileage: int
+    color: str
+    price: Optional[float] = None
+    image_urls: Optional[List[dict]] = None  # [{"url": "...", "alt_text": "...", "sort_order": 0}]
+
+
+@router.post("/api/cars")
+async def create_car(
+    car_data: CreateCarRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Создать новый автомобиль (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Валидация VIN (должен быть 17 символов)
+    if len(car_data.vin) != 17:
+        raise HTTPException(status_code=400, detail="VIN должен содержать 17 символов")
+    
+    # Валидация condition
+    valid_conditions = [ConditionEnum.NEW.value, ConditionEnum.USED.value]
+    if car_data.condition not in valid_conditions:
+        raise HTTPException(status_code=400, detail=f"Неверное состояние. Допустимые значения: {', '.join(valid_conditions)}")
+    
+    # Валидация color
+    valid_colors = [c.value for c in ColorEnum]
+    if car_data.color not in valid_colors:
+        raise HTTPException(status_code=400, detail=f"Неверный цвет. Допустимые значения: {', '.join(valid_colors)}")
+    
+    # Определяем, какую комплектацию использовать
+    trim_id = None
+    
+    if car_data.trim_id:
+        # Используем существующую комплектацию
+        trim_result = await session.execute(
+            select(CarTrim).where(CarTrim.trim_id == car_data.trim_id)
+        )
+        trim = trim_result.scalar_one_or_none()
+        if not trim:
+            raise HTTPException(status_code=404, detail="Комплектация не найдена")
+        trim_id = car_data.trim_id
+    elif car_data.new_trim:
+        # Создаем новую комплектацию
+        new_trim_data = car_data.new_trim
+        
+        # Валидация обязательных полей для новой комплектации
+        if not new_trim_data.get("brand_name"):
+            raise HTTPException(status_code=400, detail="Марка обязательна для новой комплектации")
+        if not new_trim_data.get("model_name"):
+            raise HTTPException(status_code=400, detail="Модель обязательна для новой комплектации")
+        if not new_trim_data.get("fuel_type"):
+            raise HTTPException(status_code=400, detail="Тип топлива обязателен для новой комплектации")
+        if not new_trim_data.get("transmission"):
+            raise HTTPException(status_code=400, detail="КПП обязательна для новой комплектации")
+        if not new_trim_data.get("drive_type"):
+            raise HTTPException(status_code=400, detail="Привод обязателен для новой комплектации")
+        if not new_trim_data.get("body_type"):
+            raise HTTPException(status_code=400, detail="Тип кузова обязателен для новой комплектации")
+        
+        # Валидация enum значений
+        valid_brands = [b.value for b in CarBrandEnum]
+        if new_trim_data.get("brand_name") not in valid_brands:
+            raise HTTPException(status_code=400, detail=f"Неверная марка. Допустимые значения: {', '.join(valid_brands)}")
+        
+        valid_fuel_types = [f.value for f in FuelTypeEnum]
+        if new_trim_data.get("fuel_type") not in valid_fuel_types:
+            raise HTTPException(status_code=400, detail=f"Неверный тип топлива. Допустимые значения: {', '.join(valid_fuel_types)}")
+        
+        valid_transmissions = [t.value for t in TransmissionEnum]
+        if new_trim_data.get("transmission") not in valid_transmissions:
+            raise HTTPException(status_code=400, detail=f"Неверная КПП. Допустимые значения: {', '.join(valid_transmissions)}")
+        
+        valid_drive_types = [d.value for d in DriveTypeEnum]
+        if new_trim_data.get("drive_type") not in valid_drive_types:
+            raise HTTPException(status_code=400, detail=f"Неверный привод. Допустимые значения: {', '.join(valid_drive_types)}")
+        
+        valid_body_types = [b.value for b in BodyTypeEnum]
+        if new_trim_data.get("body_type") not in valid_body_types:
+            raise HTTPException(status_code=400, detail=f"Неверный тип кузова. Допустимые значения: {', '.join(valid_body_types)}")
+        
+        # Создаем новую комплектацию
+        trim_dict = {
+            "brand_name": new_trim_data.get("brand_name"),
+            "model_name": new_trim_data.get("model_name"),
+            "trim_name": new_trim_data.get("trim_name"),
+            "engine_volume": new_trim_data.get("engine_volume"),
+            "engine_power": new_trim_data.get("engine_power"),
+            "engine_torque": new_trim_data.get("engine_torque"),
+            "fuel_type": new_trim_data.get("fuel_type"),
+            "transmission": new_trim_data.get("transmission"),
+            "drive_type": new_trim_data.get("drive_type"),
+            "body_type": new_trim_data.get("body_type"),
+            "doors": new_trim_data.get("doors"),
+            "seats": new_trim_data.get("seats")
+        }
+        
+        new_trim = CarTrim(**trim_dict)
+        session.add(new_trim)
+        await session.flush()  # чтобы получить trim_id
+        trim_id = new_trim.trim_id
+    else:
+        raise HTTPException(status_code=400, detail="Необходимо указать либо trim_id, либо new_trim")
+    
+    # Проверяем уникальность VIN
+    vin_check = await session.execute(
+        select(Car).where(Car.vin == car_data.vin)
+    )
+    if vin_check.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail=f"Автомобиль с VIN {car_data.vin} уже существует")
+    
+    # Создаём автомобиль
+    car_dict = {
+        "trim_id": trim_id,
+        "vin": car_data.vin,
+        "production_year": car_data.production_year,
+        "condition": car_data.condition,
+        "mileage": car_data.mileage,
+        "color": car_data.color,
+        "price": car_data.price,
+        "is_visible": True  # По умолчанию автомобиль видим
+    }
+    
+    car = Car(**car_dict)
+    session.add(car)
+    await session.flush()  # чтобы получить car_id
+    
+    # Создаем папку для изображений автомобиля
+    car_images_dir = Path(f"src/static/images/cars/{car.car_id}")
+    car_images_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Обрабатываем изображения: перемещаем из uploads/ в папку автомобиля и переименовываем
+    # ВАЖНО: После rename() файл автоматически удаляется из uploads, поэтому дополнительная очистка не нужна
+    if car_data.image_urls:
+        for img_data in car_data.image_urls:
+            original_url = img_data.get("url", "")
+            sort_order = img_data.get("sort_order", 0)
+            
+            # Проверяем, что URL указывает на папку uploads
+            if original_url.startswith("/static/images/cars/uploads/"):
+                # Извлекаем имя файла из URL
+                filename = original_url.replace("/static/images/cars/uploads/", "")
+                upload_path = Path(f"src/static/images/cars/uploads/{filename}")
+                
+                # Определяем расширение файла
+                file_ext = upload_path.suffix.lower()
+                if file_ext not in {'.jpg', '.jpeg', '.png'}:
+                    file_ext = '.jpg'  # По умолчанию jpg
+                
+                # Новое имя файла: car_{car_id}_{sort_order}.{ext}
+                new_filename = f"car_{car.car_id}_{sort_order}{file_ext}"
+                new_path = car_images_dir / new_filename
+                
+                # Перемещаем и переименовываем файл
+                # ВАЖНО: rename() атомарно перемещает файл, поэтому он автоматически исчезает из uploads
+                # Это безопасно для параллельных запросов - каждый файл перемещается только один раз
+                if upload_path.exists():
+                    try:
+                        upload_path.rename(new_path)
+                        # Новый URL для базы данных
+                        new_url = f"/static/images/cars/{car.car_id}/{new_filename}"
+                    except Exception as e:
+                        # Если не удалось переместить (например, файл уже перемещен другим запросом), используем оригинальный URL
+                        new_url = original_url
+                else:
+                    # Если файл не найден, используем оригинальный URL
+                    new_url = original_url
+            else:
+                # Если URL не из uploads, используем как есть
+                new_url = original_url
+            
+            # Создаем запись об изображении в базе данных
+            img = Image(
+                car_id=car.car_id,
+                url=new_url,
+                alt_text=img_data.get("alt_text"),
+                sort_order=sort_order
+            )
+            session.add(img)
+    
+    await session.commit()
+    await session.refresh(car)
+    
+    # Очищаем папку uploads от перемещенных файлов
+    # Файлы уже перемещены (rename), поэтому они больше не существуют в uploads
+    # Но на случай, если что-то пошло не так, проверяем наличие файлов
+    # Остальные файлы в uploads могут быть загружены, но еще не использованы (например, если пользователь загрузил, но не отправил форму)
+    
+    return {
+        "success": True,
+        "message": "Автомобиль успешно добавлен",
+        "car_id": car.car_id
+    }
+
+
+@router.post("/api/upload-image")
+async def upload_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_from_cookie)
+):
+    """Загрузка изображения для автомобиля (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем тип файла
+    allowed_extensions = {'.jpg', '.jpeg', '.png'}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Недопустимый формат файла. Разрешены только JPG, JPEG и PNG.")
+    
+    # Проверяем размер файла (максимум 10 МБ)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:  # 10 МБ
+        raise HTTPException(status_code=400, detail="Файл слишком большой. Максимальный размер: 10 МБ.")
+    
+    # Создаем уникальное имя файла
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    
+    # Путь для сохранения (в папке static/images/cars/uploads/)
+    upload_dir = Path("src/static/images/cars/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = upload_dir / unique_filename
+    
+    # Сохраняем файл
+    try:
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Проверяем, что это действительно изображение (если PIL доступен)
+        if HAS_PIL:
+            try:
+                img = PILImage.open(file_path)
+                img.verify()
+            except Exception:
+                # Если файл не является изображением, удаляем его
+                os.remove(file_path)
+                raise HTTPException(status_code=400, detail="Файл не является корректным изображением.")
+        
+        # Возвращаем URL для доступа к файлу
+        image_url = f"/static/images/cars/uploads/{unique_filename}"
+        
+        return JSONResponse({
+            "success": True,
+            "url": image_url,
+            "filename": unique_filename
+        })
+    except Exception as e:
+        # Если произошла ошибка при сохранении, удаляем файл если он был создан
+        if file_path.exists():
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении файла: {str(e)}")
 

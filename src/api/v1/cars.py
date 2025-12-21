@@ -1,9 +1,12 @@
 from fastapi import APIRouter, Query, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import update
 from typing import List, Optional
 
 from src.database.database import get_async_session
 from src.repositories.car_repo import search_cars, filter_cars, search_and_filter_cars, get_car_by_id
+from src.auth.jwt import get_current_user_from_cookie
+from src.database.models import User, UserRoleEnum, Car
 from src.database.models import (
     CarBrandEnum,
     ConditionEnum,
@@ -159,6 +162,10 @@ async def get_car_detail(
     if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
     
+    # Проверяем видимость автомобиля (невидимые автомобили недоступны для просмотра)
+    if not car.is_visible:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    
     # Формируем полные данные об автомобиле
     car_data = {
         "car_id": car.car_id,
@@ -190,3 +197,37 @@ async def get_car_detail(
     }
     
     return car_data
+
+
+@router.post("/{car_id}/remove-from-sale")
+async def remove_car_from_sale(
+    car_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Снять автомобиль с продажи (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем, что автомобиль существует
+    car = await get_car_by_id(session, car_id)
+    if not car:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    
+    # Проверяем, что автомобиль еще видим (не снят с продажи)
+    if not car.is_visible:
+        raise HTTPException(status_code=400, detail="Автомобиль уже снят с продажи")
+    
+    # Снимаем автомобиль с продажи
+    await session.execute(
+        update(Car)
+        .where(Car.car_id == car_id)
+        .values(is_visible=False)
+    )
+    await session.commit()
+    
+    return {
+        "success": True,
+        "message": "Автомобиль успешно снят с продажи"
+    }

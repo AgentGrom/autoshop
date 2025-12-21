@@ -45,7 +45,7 @@ async def get_car_ids_by_search(
     vin = extract_vin(query)
     if vin:
         result = await session.execute(
-            select(Car.car_id).where(Car.vin == vin)
+            select(Car.car_id).where(Car.vin == vin, Car.is_visible == True)
         )
         car_id = result.scalar()
         return [car_id] if car_id else []
@@ -83,7 +83,7 @@ async def get_car_ids_by_search(
     if not conditions:
         return []
 
-    stmt = select(Car.car_id).join(Car.trim).where(or_(*conditions)).limit(limit)
+    stmt = select(Car.car_id).join(Car.trim).where(or_(*conditions), Car.is_visible == True).limit(limit)
     result = await session.execute(stmt)
     return list(result.scalars().all())
 
@@ -206,15 +206,15 @@ async def search_cars(
     
     car_ids = await get_car_ids_by_search(session, query, limit=200)
     if not car_ids:
-        # Если нет — возвращаем первые авто (исключая заказанные)
-        stmt = select(Car).where(~Car.car_id.in_(ordered_car_ids_subquery))
+        # Если нет — возвращаем первые авто (только видимые)
+        stmt = select(Car).where(Car.is_visible == True)
         return await apply_filters_and_execute(session, stmt, [], limit, offset)
 
     stmt = (
         select(Car)
         .where(
             Car.car_id.in_(car_ids),
-            ~Car.car_id.in_(ordered_car_ids_subquery)
+            Car.is_visible == True
         )
     )
     return await apply_filters_and_execute(session, stmt, [], limit, offset)
@@ -269,19 +269,10 @@ async def filter_cars(
         fuel_types=fuel_types
     )
 
-    from src.database.models import CarOrder, Order, OrderStatusEnum
-    
-    # Исключаем автомобили, которые уже заказаны
-    ordered_car_ids_subquery = (
-        select(CarOrder.car_id)
-        .join(Order, CarOrder.order_id == Order.order_id)
-        .where(Order.status != OrderStatusEnum.CANCELLED.value)
-    )
-    
     stmt = (
         select(Car)
         .join(Car.trim)
-        .where(~Car.car_id.in_(ordered_car_ids_subquery))
+        .where(Car.is_visible == True)
     )
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 
@@ -337,16 +328,6 @@ async def search_and_filter_cars(
         fuel_types=fuel_types
     )
 
-    from src.database.models import CarOrder, Order, OrderStatusEnum
-    
-    # Исключаем автомобили, которые уже заказаны (имеют активные заказы, не отмененные)
-    # Подзапрос для получения car_id автомобилей с активными заказами
-    ordered_car_ids_subquery = (
-        select(CarOrder.car_id)
-        .join(Order, CarOrder.order_id == Order.order_id)
-        .where(Order.status != OrderStatusEnum.CANCELLED.value)
-    )
-    
     if query and query.strip():
         car_ids = await get_car_ids_by_search(session, query)
         if not car_ids:
@@ -356,14 +337,14 @@ async def search_and_filter_cars(
             .join(Car.trim)
             .where(
                 Car.car_id.in_(car_ids),
-                ~Car.car_id.in_(ordered_car_ids_subquery)  # Исключаем автомобили с активными заказами
+                Car.is_visible == True
             )
         )
     else:
         stmt = (
             select(Car)
             .join(Car.trim)
-            .where(~Car.car_id.in_(ordered_car_ids_subquery))  # Исключаем автомобили с активными заказами
+            .where(Car.is_visible == True)
         )
 
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)

@@ -1082,6 +1082,12 @@ function initManagementTabs() {
                 // Загружаем данные для раздела управления заказами
                 if (targetTab === 'orders-management') {
                     loadManagementOrders();
+                } else if (targetTab === 'add-car') {
+                    // Инициализируем форму, если она еще не инициализирована
+                    if (document.getElementById('add-car-form') && !document.getElementById('add-car-form').dataset.initialized) {
+                        initAddCarForm();
+                        document.getElementById('add-car-form').dataset.initialized = 'true';
+                    }
                 }
             }
         });
@@ -1097,6 +1103,12 @@ function initManagementTabs() {
             firstSubsection.style.display = 'block';
             if (firstTab.dataset.tab === 'orders-management') {
                 loadManagementOrders();
+            } else if (firstTab.dataset.tab === 'add-car') {
+                // Инициализируем форму, если она еще не инициализирована
+                if (document.getElementById('add-car-form') && !document.getElementById('add-car-form').dataset.initialized) {
+                    initAddCarForm();
+                    document.getElementById('add-car-form').dataset.initialized = 'true';
+                }
             }
         }
     }
@@ -1434,6 +1446,783 @@ async function saveAdminNotes(orderId) {
         console.error('Ошибка сохранения комментариев:', err);
         await showError(err);
     }
+}
+
+// ========== ДОБАВЛЕНИЕ АВТОМОБИЛЯ (для менеджеров и администраторов) ==========
+
+// Загрузка списка комплектаций по марке и модели
+async function loadCarTrims(brandName = null, modelName = null) {
+    try {
+        let url = '/account/api/car-trims?';
+        if (brandName) url += `brand_name=${encodeURIComponent(brandName)}&`;
+        if (modelName) url += `model_name=${encodeURIComponent(modelName)}&`;
+        
+        const response = await fetch(url, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: 'Ошибка загрузки комплектаций' }));
+            throw new Error(errorData.detail || 'Ошибка загрузки комплектаций');
+        }
+        
+        const data = await response.json();
+        const trimSelect = document.getElementById('car-trim');
+        
+        if (!trimSelect) return;
+        
+        // Очищаем список
+        if (brandName && modelName) {
+            trimSelect.innerHTML = '<option value="">Выберите комплектацию...</option>';
+        } else {
+            trimSelect.innerHTML = '<option value="">Сначала выберите марку и модель...</option>';
+        }
+        
+        // Добавляем комплектации
+        if (data.trims && data.trims.length > 0) {
+            data.trims.forEach(trim => {
+                const option = document.createElement('option');
+                option.value = trim.trim_id;
+                option.textContent = trim.display_name || `${trim.brand_name} ${trim.model_name} ${trim.trim_name}`.trim();
+                trimSelect.appendChild(option);
+            });
+        } else if (brandName && modelName) {
+            trimSelect.innerHTML = '<option value="">Комплектации не найдены</option>';
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки комплектаций:', err);
+        await showError(err);
+    }
+}
+
+// Инициализация формы добавления автомобиля
+function initAddCarForm() {
+    const form = document.getElementById('add-car-form');
+    const addImageBtn = document.getElementById('add-image-btn');
+    const imagesContainer = document.getElementById('car-images-container');
+    
+    if (!form) return;
+    
+    // Проверяем, была ли уже инициализирована форма
+    if (form.dataset.initialized === 'true') {
+        return;
+    }
+    
+    // Функция для обновления видимости кнопок удаления (сохраняем ссылку на форме для доступа из обработчиков)
+    const updateRemoveButtons = function() {
+        const imageGroups = imagesContainer.querySelectorAll('.image-input-group');
+        imageGroups.forEach((group, index) => {
+            const removeBtn = group.querySelector('.remove-image-btn');
+            if (removeBtn) {
+                // Показываем кнопку удаления только если изображений больше одного
+                if (imageGroups.length > 1) {
+                    removeBtn.style.display = 'inline-block';
+                } else {
+                    removeBtn.style.display = 'none';
+                }
+            }
+        });
+    };
+    
+    // Сохраняем ссылку на функцию в форме для доступа из обработчиков
+    form.updateRemoveButtons = updateRemoveButtons;
+    
+    // Используем делегирование событий для кнопки добавления (чтобы избежать дублирования)
+    if (addImageBtn && !addImageBtn.dataset.listenerAdded) {
+        addImageBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const imageGroup = document.createElement('div');
+            imageGroup.className = 'image-input-group';
+            
+            imageGroup.innerHTML = `
+                <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                <input type="hidden" class="image-url-input" value="">
+                <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px; width: 100%;">
+                <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                    <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                </div>
+                <div class="image-upload-status" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+            `;
+            
+            imagesContainer.appendChild(imageGroup);
+            
+            // Инициализируем обработчики для нового элемента
+            initImageInputHandlers(imageGroup);
+            
+            updateRemoveButtons();
+        });
+        addImageBtn.dataset.listenerAdded = 'true';
+    }
+    
+    // Используем делегирование событий для кнопок удаления (чтобы работало для динамически добавленных элементов)
+    if (imagesContainer && !imagesContainer.dataset.listenerAdded) {
+        imagesContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-image-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                const imageGroup = e.target.closest('.image-input-group');
+                if (imageGroup) {
+                    imageGroup.remove();
+                    updateRemoveButtons();
+                }
+            }
+        });
+        imagesContainer.dataset.listenerAdded = 'true';
+    }
+    
+    // Инициализируем видимость кнопок при загрузке
+    updateRemoveButtons();
+    
+    // Инициализируем обработчики для существующих элементов изображений
+    document.querySelectorAll('.image-input-group').forEach(group => {
+        initImageInputHandlers(group);
+    });
+    
+    // Функция для инициализации обработчиков выбора и загрузки файла
+    function initImageInputHandlers(imageGroup) {
+        const fileInput = imageGroup.querySelector('.image-file-input');
+        const selectBtn = imageGroup.querySelector('.select-image-btn');
+        const filenameSpan = imageGroup.querySelector('.image-filename');
+        const urlInput = imageGroup.querySelector('.image-url-input');
+        const previewDiv = imageGroup.querySelector('.image-preview');
+        const previewImg = previewDiv ? previewDiv.querySelector('img') : null;
+        const statusDiv = imageGroup.querySelector('.image-upload-status');
+        
+        if (selectBtn && fileInput) {
+            // Обработчик клика на кнопку "Выбрать файл"
+            selectBtn.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // Обработчик выбора файла
+            fileInput.addEventListener('change', async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                // Проверяем тип файла
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+                if (!allowedTypes.includes(file.type)) {
+                    if (statusDiv) {
+                        statusDiv.textContent = 'Ошибка: разрешены только JPG, JPEG и PNG';
+                        statusDiv.style.color = '#d32f2f';
+                    }
+                    return;
+                }
+                
+                // Проверяем размер файла (10 МБ)
+                if (file.size > 10 * 1024 * 1024) {
+                    if (statusDiv) {
+                        statusDiv.textContent = 'Ошибка: файл слишком большой (макс. 10 МБ)';
+                        statusDiv.style.color = '#d32f2f';
+                    }
+                    return;
+                }
+                
+                // Показываем имя файла
+                if (filenameSpan) {
+                    filenameSpan.textContent = file.name;
+                }
+                
+                // Показываем превью
+                if (previewDiv && previewImg) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        previewImg.src = e.target.result;
+                        previewDiv.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+                
+                // Загружаем файл на сервер
+                if (statusDiv) {
+                    statusDiv.textContent = 'Загрузка...';
+                    statusDiv.style.color = '#666';
+                }
+                
+                try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    
+                    const response = await fetch('/account/api/upload-image', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (!response.ok) {
+                        throw new Error(data.detail || 'Ошибка при загрузке файла');
+                    }
+                    
+                    // Сохраняем URL
+                    if (urlInput) {
+                        urlInput.value = data.url;
+                    }
+                    
+                    if (statusDiv) {
+                        statusDiv.textContent = 'Загружено';
+                        statusDiv.style.color = '#28a745';
+                    }
+                    
+                    // Обновляем превью с загруженного URL
+                    if (previewImg) {
+                        previewImg.src = data.url;
+                    }
+                    
+                } catch (err) {
+                    console.error('Ошибка загрузки файла:', err);
+                    if (statusDiv) {
+                        statusDiv.textContent = 'Ошибка: ' + (err.message || 'Не удалось загрузить файл');
+                        statusDiv.style.color = '#d32f2f';
+                    }
+                    if (filenameSpan) {
+                        filenameSpan.textContent = '';
+                    }
+                    if (previewDiv) {
+                        previewDiv.style.display = 'none';
+                    }
+                }
+            });
+        }
+    }
+    
+    // Обработчик кнопки "Характеристики"
+    const toggleSpecsBtn = document.getElementById('toggle-specs-btn');
+    const specsSection = document.getElementById('trim-specs-section');
+    const specsBtnText = document.getElementById('specs-btn-text');
+    let specsExpanded = false;
+    let selectedTrimId = null;
+    let originalSpecs = {}; // Для отслеживания изменений
+    
+    if (toggleSpecsBtn) {
+        toggleSpecsBtn.addEventListener('click', () => {
+            specsExpanded = !specsExpanded;
+            if (specsExpanded) {
+                specsSection.style.display = 'block';
+                specsBtnText.textContent = '▲ Скрыть характеристики';
+            } else {
+                specsSection.style.display = 'none';
+                specsBtnText.textContent = '▼ Характеристики';
+            }
+        });
+    }
+    
+    // Загрузка данных комплектации при выборе
+    async function loadTrimDetails(trimId) {
+        if (!trimId) {
+            selectedTrimId = null;
+            originalSpecs = {};
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/account/api/car-trim/${trimId}`, {
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                return;
+            }
+            
+            const data = await response.json();
+            selectedTrimId = trimId;
+            
+            // Сохраняем оригинальные значения для отслеживания изменений
+            originalSpecs = {
+                trim_name: data.trim_name || '',
+                engine_volume: data.engine_volume || '',
+                engine_power: data.engine_power || '',
+                engine_torque: data.engine_torque || '',
+                fuel_type: data.fuel_type || '',
+                transmission: data.transmission || '',
+                drive_type: data.drive_type || '',
+                body_type: data.body_type || '',
+                doors: data.doors || '',
+                seats: data.seats || ''
+            };
+            
+            // Заполняем поля
+            document.getElementById('trim-name').value = data.trim_name || '';
+            document.getElementById('trim-engine-volume').value = data.engine_volume || '';
+            document.getElementById('trim-engine-power').value = data.engine_power || '';
+            document.getElementById('trim-engine-torque').value = data.engine_torque || '';
+            document.getElementById('trim-fuel-type').value = data.fuel_type || '';
+            document.getElementById('trim-transmission').value = data.transmission || '';
+            document.getElementById('trim-drive-type').value = data.drive_type || '';
+            document.getElementById('trim-body-type').value = data.body_type || '';
+            document.getElementById('trim-doors').value = data.doors || '';
+            document.getElementById('trim-seats').value = data.seats || '';
+            
+            // Показываем кнопку и открываем секцию характеристик
+            toggleSpecsBtn.style.display = 'inline-block';
+            if (!specsExpanded) {
+                specsExpanded = true;
+                specsSection.style.display = 'block';
+                specsBtnText.textContent = '▲ Скрыть характеристики';
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки данных комплектации:', err);
+        }
+    }
+    
+    // Функция для проверки изменений и очистки названия комплектации
+    function checkSpecsChanges() {
+        if (!selectedTrimId) return; // Если комплектация не выбрана, не проверяем
+        
+        const currentSpecs = {
+            trim_name: document.getElementById('trim-name').value,
+            engine_volume: document.getElementById('trim-engine-volume').value,
+            engine_power: document.getElementById('trim-engine-power').value,
+            engine_torque: document.getElementById('trim-engine-torque').value,
+            fuel_type: document.getElementById('trim-fuel-type').value,
+            transmission: document.getElementById('trim-transmission').value,
+            drive_type: document.getElementById('trim-drive-type').value,
+            body_type: document.getElementById('trim-body-type').value,
+            doors: document.getElementById('trim-doors').value,
+            seats: document.getElementById('trim-seats').value
+        };
+        
+        // Проверяем, изменилось ли что-то (кроме названия)
+        const changed = 
+            currentSpecs.engine_volume !== String(originalSpecs.engine_volume || '') ||
+            currentSpecs.engine_power !== String(originalSpecs.engine_power || '') ||
+            currentSpecs.engine_torque !== String(originalSpecs.engine_torque || '') ||
+            currentSpecs.fuel_type !== String(originalSpecs.fuel_type || '') ||
+            currentSpecs.transmission !== String(originalSpecs.transmission || '') ||
+            currentSpecs.drive_type !== String(originalSpecs.drive_type || '') ||
+            currentSpecs.body_type !== String(originalSpecs.body_type || '') ||
+            currentSpecs.doors !== String(originalSpecs.doors || '') ||
+            currentSpecs.seats !== String(originalSpecs.seats || '');
+        
+        if (changed) {
+            // Очищаем выбор комплектации и название
+            document.getElementById('car-trim').value = '';
+            document.getElementById('trim-name').value = '';
+            selectedTrimId = null;
+            originalSpecs = {};
+        }
+    }
+    
+    // Обработчики изменений полей характеристик
+    const specsInputs = ['trim-engine-volume', 'trim-engine-power', 'trim-engine-torque', 
+                        'trim-fuel-type', 'trim-transmission', 'trim-drive-type', 
+                        'trim-body-type', 'trim-doors', 'trim-seats'];
+    
+    specsInputs.forEach(inputId => {
+        const input = document.getElementById(inputId);
+        if (input) {
+            input.addEventListener('change', checkSpecsChanges);
+            input.addEventListener('input', checkSpecsChanges);
+        }
+    });
+    
+    // Обработчик выбора комплектации
+    const trimSelect = document.getElementById('car-trim');
+    if (trimSelect) {
+        trimSelect.addEventListener('change', (e) => {
+            const trimId = e.target.value;
+            const brandName = brandSelect.value;
+            const modelName = modelInput.value.trim();
+            
+            if (trimId) {
+                loadTrimDetails(parseInt(trimId));
+            } else {
+                // Очищаем выбор комплектации, но оставляем кнопку видимой, если выбраны марка и модель
+                selectedTrimId = null;
+                originalSpecs = {};
+                
+                // Очищаем поля характеристик
+                document.getElementById('trim-name').value = '';
+                document.getElementById('trim-engine-volume').value = '';
+                document.getElementById('trim-engine-power').value = '';
+                document.getElementById('trim-engine-torque').value = '';
+                document.getElementById('trim-fuel-type').value = '';
+                document.getElementById('trim-transmission').value = '';
+                document.getElementById('trim-drive-type').value = '';
+                document.getElementById('trim-body-type').value = '';
+                document.getElementById('trim-doors').value = '';
+                document.getElementById('trim-seats').value = '';
+                
+                // Показываем кнопку только если выбраны марка и модель
+                if (brandName && modelName) {
+                    toggleSpecsBtn.style.display = 'inline-block';
+                } else {
+                    toggleSpecsBtn.style.display = 'none';
+                }
+                
+                // Закрываем секцию характеристик
+                specsSection.style.display = 'none';
+                specsExpanded = false;
+                if (specsBtnText) specsBtnText.textContent = '▼ Характеристики';
+            }
+        });
+    }
+    
+    // Обработчики для загрузки комплектаций при изменении марки/модели
+    const brandSelect = document.getElementById('car-brand');
+    const modelInput = document.getElementById('car-model');
+    const suggestionsDropdown = document.getElementById('model-suggestions');
+    let selectedSuggestionIndex = -1;
+    let suggestions = [];
+    
+    // Загрузка подсказок моделей
+    async function loadModelSuggestions(query) {
+        if (!query || query.length < 1) {
+            suggestionsDropdown.style.display = 'none';
+            return;
+        }
+        
+        try {
+            const brandName = brandSelect.value;
+            let url = `/account/api/car-models?query=${encodeURIComponent(query)}`;
+            if (brandName) {
+                url += `&brand_name=${encodeURIComponent(brandName)}`;
+            }
+            
+            const response = await fetch(url, {
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                return;
+            }
+            
+            const data = await response.json();
+            suggestions = data.models || [];
+            selectedSuggestionIndex = -1;
+            
+            if (suggestions.length > 0) {
+                renderSuggestions(suggestions, query);
+            } else {
+                suggestionsDropdown.style.display = 'none';
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки подсказок:', err);
+            suggestionsDropdown.style.display = 'none';
+        }
+    }
+    
+    // Отображение подсказок
+    function renderSuggestions(models, query) {
+        suggestionsDropdown.innerHTML = '';
+        
+        models.forEach((model, index) => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.textContent = model;
+            item.dataset.index = index;
+            
+            item.addEventListener('click', () => {
+                modelInput.value = model;
+                suggestionsDropdown.style.display = 'none';
+                updateTrimsList();
+            });
+            
+            item.addEventListener('mouseenter', () => {
+                selectedSuggestionIndex = index;
+                updateSuggestionSelection();
+            });
+            
+            suggestionsDropdown.appendChild(item);
+        });
+        
+        suggestionsDropdown.style.display = 'block';
+    }
+    
+    // Обновление выделения подсказки
+    function updateSuggestionSelection() {
+        const items = suggestionsDropdown.querySelectorAll('.suggestion-item');
+        items.forEach((item, index) => {
+            if (index === selectedSuggestionIndex) {
+                item.classList.add('selected');
+            } else {
+                item.classList.remove('selected');
+            }
+        });
+    }
+    
+    async function updateTrimsList() {
+        const brandName = brandSelect.value;
+        const modelName = modelInput.value.trim();
+        
+        // Очищаем выбор комплектации при изменении марки/модели
+        selectedTrimId = null;
+        originalSpecs = {};
+        
+        if (brandName && modelName) {
+            // Показываем кнопку "Характеристики", если выбраны марка и модель
+            toggleSpecsBtn.style.display = 'inline-block';
+            await loadCarTrims(brandName, modelName);
+        } else {
+            // Скрываем кнопку и секцию, если марка или модель не выбраны
+            toggleSpecsBtn.style.display = 'none';
+            specsSection.style.display = 'none';
+            specsExpanded = false;
+            if (specsBtnText) specsBtnText.textContent = '▼ Характеристики';
+            
+            const trimSelect = document.getElementById('car-trim');
+            if (trimSelect) {
+                trimSelect.innerHTML = '<option value="">Сначала выберите марку и модель...</option>';
+            }
+        }
+    }
+    
+    if (brandSelect) {
+        brandSelect.addEventListener('change', () => {
+            modelInput.value = '';
+            suggestionsDropdown.style.display = 'none';
+            const trimSelect = document.getElementById('car-trim');
+            if (trimSelect) {
+                trimSelect.innerHTML = '<option value="">Сначала выберите марку и модель...</option>';
+                trimSelect.value = '';
+            }
+            selectedTrimId = null;
+            originalSpecs = {};
+            toggleSpecsBtn.style.display = 'none';
+            specsSection.style.display = 'none';
+            specsExpanded = false;
+            if (specsBtnText) specsBtnText.textContent = '▼ Характеристики';
+            updateTrimsList();
+        });
+    }
+    
+    if (modelInput) {
+        let modelTimeout;
+        let suggestionsTimeout;
+        
+        modelInput.addEventListener('input', () => {
+            const query = modelInput.value.trim();
+            
+            // Загружаем подсказки
+            clearTimeout(suggestionsTimeout);
+            suggestionsTimeout = setTimeout(() => {
+                loadModelSuggestions(query);
+            }, 300);
+            
+            // Обновляем список комплектаций с задержкой
+            clearTimeout(modelTimeout);
+            modelTimeout = setTimeout(updateTrimsList, 500);
+        });
+        
+        // Закрываем подсказки при потере фокуса
+        modelInput.addEventListener('blur', () => {
+            setTimeout(() => {
+                suggestionsDropdown.style.display = 'none';
+            }, 200);
+        });
+        
+        // Обработка навигации по подсказкам с клавиатуры
+        modelInput.addEventListener('keydown', (e) => {
+            if (suggestionsDropdown.style.display === 'none' || suggestions.length === 0) {
+                return;
+            }
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, suggestions.length - 1);
+                updateSuggestionSelection();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+                updateSuggestionSelection();
+            } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                e.preventDefault();
+                modelInput.value = suggestions[selectedSuggestionIndex];
+                suggestionsDropdown.style.display = 'none';
+                updateTrimsList();
+            } else if (e.key === 'Escape') {
+                suggestionsDropdown.style.display = 'none';
+            }
+        });
+    }
+    
+    // Закрываем подсказки при клике вне поля
+    document.addEventListener('click', (e) => {
+        if (!modelInput.contains(e.target) && !suggestionsDropdown.contains(e.target)) {
+            suggestionsDropdown.style.display = 'none';
+        }
+    });
+    
+    // Обработчик отправки формы (добавляем только один раз)
+    if (!form.dataset.submitHandlerAdded) {
+        form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const messageDiv = document.getElementById('add-car-message');
+        messageDiv.style.display = 'none';
+        messageDiv.className = '';
+        
+        // Собираем данные формы
+        const formData = {
+            vin: document.getElementById('car-vin').value.trim().toUpperCase(),
+            production_year: parseInt(document.getElementById('car-year').value),
+            condition: document.getElementById('car-condition').value,
+            mileage: parseInt(document.getElementById('car-mileage').value),
+            color: document.getElementById('car-color').value,
+            price: document.getElementById('car-price').value ? parseFloat(document.getElementById('car-price').value) : null
+        };
+        
+        // Определяем, используется ли готовая комплектация или создается новая
+        const trimId = document.getElementById('car-trim').value;
+        const brandName = document.getElementById('car-brand').value;
+        const modelName = document.getElementById('car-model').value.trim();
+        
+        if (trimId && selectedTrimId && parseInt(trimId) === selectedTrimId) {
+            // Используем готовую комплектацию (если она не была изменена)
+            formData.trim_id = parseInt(trimId);
+        } else {
+            // Создаем новую комплектацию или используем измененную
+            if (!brandName || !modelName) {
+                messageDiv.textContent = 'Выберите марку и модель';
+                messageDiv.className = 'error-message';
+                messageDiv.style.display = 'block';
+                messageDiv.style.color = '#d32f2f';
+                return;
+            }
+            
+            const newTrim = {
+                brand_name: brandName,
+                model_name: modelName,
+                trim_name: document.getElementById('trim-name').value.trim() || null,
+                engine_volume: document.getElementById('trim-engine-volume').value ? parseFloat(document.getElementById('trim-engine-volume').value) : null,
+                engine_power: document.getElementById('trim-engine-power').value ? parseInt(document.getElementById('trim-engine-power').value) : null,
+                engine_torque: document.getElementById('trim-engine-torque').value ? parseInt(document.getElementById('trim-engine-torque').value) : null,
+                fuel_type: document.getElementById('trim-fuel-type').value,
+                transmission: document.getElementById('trim-transmission').value,
+                drive_type: document.getElementById('trim-drive-type').value,
+                body_type: document.getElementById('trim-body-type').value,
+                doors: document.getElementById('trim-doors').value ? parseInt(document.getElementById('trim-doors').value) : null,
+                seats: document.getElementById('trim-seats').value ? parseInt(document.getElementById('trim-seats').value) : null
+            };
+            
+            // Валидация обязательных полей
+            if (!newTrim.fuel_type || !newTrim.transmission || !newTrim.drive_type || !newTrim.body_type) {
+                messageDiv.textContent = 'Заполните все обязательные поля характеристик (тип топлива, КПП, привод, тип кузова)';
+                messageDiv.className = 'error-message';
+                messageDiv.style.display = 'block';
+                messageDiv.style.color = '#d32f2f';
+                return;
+            }
+            
+            formData.new_trim = newTrim;
+        }
+        
+        // Собираем изображения (только из контейнера формы)
+        const imageInputs = imagesContainer.querySelectorAll('.image-input-group');
+        const imageUrls = [];
+        imageInputs.forEach((group, index) => {
+            const urlInput = group.querySelector('.image-url-input');
+            const altInput = group.querySelector('.image-alt-input');
+            if (urlInput && altInput) {
+                const url = urlInput.value.trim();
+                
+                if (url) {
+                    imageUrls.push({
+                        url: url,
+                        alt_text: altInput.value.trim() || null,
+                        sort_order: index
+                    });
+                }
+            }
+        });
+        
+        if (imageUrls.length > 0) {
+            formData.image_urls = imageUrls;
+        }
+        
+        // Отправляем запрос
+        try {
+            const response = await fetch('/account/api/cars', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(formData)
+            });
+            
+            const data = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(data.detail || 'Ошибка при добавлении автомобиля');
+            }
+            
+            // Успех
+            messageDiv.textContent = data.message || 'Автомобиль успешно добавлен';
+            messageDiv.className = 'success-message';
+            messageDiv.style.display = 'block';
+            messageDiv.style.color = '#28a745';
+            
+            // Очищаем форму
+            form.reset();
+            imagesContainer.innerHTML = `
+                <div class="image-input-group">
+                    <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                    <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                    <input type="hidden" class="image-url-input" value="">
+                    <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px; width: 100%;">
+                    <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                    <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                        <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                    </div>
+                    <div class="image-upload-status" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+                </div>
+            `;
+            
+            // Инициализируем обработчики для первого элемента
+            const firstGroup = imagesContainer.querySelector('.image-input-group');
+            if (firstGroup) {
+                initImageInputHandlers(firstGroup);
+            }
+            
+            // Обновляем видимость кнопок удаления
+            if (form.updateRemoveButtons && typeof form.updateRemoveButtons === 'function') {
+                form.updateRemoveButtons();
+            }
+            
+            // Сбрасываем состояние комплектации
+            selectedTrimId = null;
+            originalSpecs = {};
+            if (toggleSpecsBtn) toggleSpecsBtn.style.display = 'none';
+            if (specsSection) specsSection.style.display = 'none';
+            specsExpanded = false;
+            if (specsBtnText) specsBtnText.textContent = '▼ Характеристики';
+            
+            // Сбрасываем выбор марки и модели
+            if (brandSelect && modelInput) {
+                brandSelect.value = '';
+                modelInput.value = '';
+                const trimSelect = document.getElementById('car-trim');
+                if (trimSelect) {
+                    trimSelect.innerHTML = '<option value="">Сначала выберите марку и модель...</option>';
+                }
+            }
+            
+        } catch (err) {
+            console.error('Ошибка добавления автомобиля:', err);
+            messageDiv.textContent = typeof err === 'string' ? err : err.message || 'Ошибка при добавлении автомобиля';
+            messageDiv.className = 'error-message';
+            messageDiv.style.display = 'block';
+            messageDiv.style.color = '#d32f2f';
+        }
+        });
+        form.dataset.submitHandlerAdded = 'true';
+    }
+    
+    // Помечаем форму как инициализированную
+    form.dataset.initialized = 'true';
+}
+
+// Инициализируем форму при загрузке страницы
+if (document.getElementById('add-car-form')) {
+    initAddCarForm();
 }
 
 // Экспортируем функции для использования в HTML

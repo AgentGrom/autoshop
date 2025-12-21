@@ -414,6 +414,215 @@
                             
                             <!-- Подраздел: Добавить авто -->
                             <div id="add-car-content" class="management-subsection" style="display: none;">
+                                <h3>Добавить новый автомобиль</h3>
+                                <form id="add-car-form">
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="car-brand">Марка *</label>
+                                            <select id="car-brand" name="brand_name">
+                                                <option value="">Выберите марку...</option>
+                                                <option value="Toyota">Toyota</option>
+                                                <option value="BMW">BMW</option>
+                                                <option value="Mercedes-Benz">Mercedes-Benz</option>
+                                                <option value="Audi">Audi</option>
+                                                <option value="Volkswagen">Volkswagen</option>
+                                                <option value="Honda">Honda</option>
+                                                <option value="Ford">Ford</option>
+                                                <option value="Hyundai">Hyundai</option>
+                                                <option value="Kia">Kia</option>
+                                                <option value="Nissan">Nissan</option>
+                                                <option value="Lada">Lada</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group half-width" style="position: relative;">
+                                            <label for="car-model">Модель *</label>
+                                            <input type="text" id="car-model" name="model_name" placeholder="Введите модель" autocomplete="off">
+                                            <div id="model-suggestions" class="suggestions-dropdown" style="display: none;"></div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="car-trim">Комплектация</label>
+                                        <select id="car-trim" name="trim_id">
+                                            <option value="">Сначала выберите марку и модель...</option>
+                                        </select>
+                                        <button type="button" id="toggle-specs-btn" class="btn btn-secondary btn-sm" style="margin-top: 8px; display: none;">
+                                            <span id="specs-btn-text">▼ Характеристики</span>
+                                        </button>
+                                    </div>
+                                    
+                                    <!-- Блок характеристик (скрыт по умолчанию) -->
+                                    <div id="trim-specs-section" style="display: none;">
+                                        <div class="form-group">
+                                            <label for="trim-name">Название комплектации</label>
+                                            <input type="text" id="trim-name" name="trim_name" placeholder="Например: Comfort, Luxury, Sport">
+                                        </div>
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group half-width">
+                                                <label for="trim-engine-volume">Объем двигателя (л)</label>
+                                                <input type="number" id="trim-engine-volume" name="engine_volume" min="0" max="10" step="0.1" placeholder="2.0">
+                                            </div>
+                                            
+                                            <div class="form-group half-width">
+                                                <label for="trim-engine-power">Мощность (л.с.)</label>
+                                                <input type="number" id="trim-engine-power" name="engine_power" min="0" placeholder="150">
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-group">
+                                            <label for="trim-engine-torque">Крутящий момент (Н·м)</label>
+                                            <input type="number" id="trim-engine-torque" name="engine_torque" min="0" placeholder="300">
+                                        </div>
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group half-width">
+                                                <label for="trim-fuel-type">Тип топлива *</label>
+                                                <select id="trim-fuel-type" name="fuel_type">
+                                                    <option value="">Выберите тип топлива...</option>
+                                                    <option value="Бензин">Бензин</option>
+                                                    <option value="Дизель">Дизель</option>
+                                                    <option value="Гибрид">Гибрид</option>
+                                                    <option value="Электрический">Электрический</option>
+                                                    <option value="Газ">Газ</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="form-group half-width">
+                                                <label for="trim-transmission">КПП *</label>
+                                                <select id="trim-transmission" name="transmission">
+                                                    <option value="">Выберите КПП...</option>
+                                                    <option value="Механическая">Механическая</option>
+                                                    <option value="Автоматическая">Автоматическая</option>
+                                                    <option value="Роботизированная">Роботизированная</option>
+                                                    <option value="Вариатор">Вариатор</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group half-width">
+                                                <label for="trim-drive-type">Привод *</label>
+                                                <select id="trim-drive-type" name="drive_type">
+                                                    <option value="">Выберите привод...</option>
+                                                    <option value="Передний">Передний</option>
+                                                    <option value="Задний">Задний</option>
+                                                    <option value="Полный">Полный</option>
+                                                    <option value="4WD">4WD</option>
+                                                </select>
+                                            </div>
+                                            
+                                            <div class="form-group half-width">
+                                                <label for="trim-body-type">Тип кузова *</label>
+                                                <select id="trim-body-type" name="body_type">
+                                                    <option value="">Выберите тип кузова...</option>
+                                                    <option value="Седан">Седан</option>
+                                                    <option value="Хэтчбек">Хэтчбек</option>
+                                                    <option value="Универсал">Универсал</option>
+                                                    <option value="Купе">Купе</option>
+                                                    <option value="Внедорожник">Внедорожник</option>
+                                                    <option value="Минивэн">Минивэн</option>
+                                                    <option value="Пикап">Пикап</option>
+                                                    <option value="Фургон">Фургон</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                        
+                                        <div class="form-row">
+                                            <div class="form-group half-width">
+                                                <label for="trim-doors">Количество дверей</label>
+                                                <input type="number" id="trim-doors" name="doors" min="2" max="6" placeholder="5">
+                                            </div>
+                                            
+                                            <div class="form-group half-width">
+                                                <label for="trim-seats">Количество мест</label>
+                                                <input type="number" id="trim-seats" name="seats" min="2" max="9" placeholder="4">
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="car-year">Год выпуска *</label>
+                                            <input type="number" id="car-year" name="production_year" min="1900" max="2100" required>
+                                        </div>
+                                        
+                                        <div class="form-group half-width">
+                                            <label for="car-vin">VIN (17 символов) *</label>
+                                            <input type="text" id="car-vin" name="vin" maxlength="17" required placeholder="ABCD1234EFGH56789">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="car-condition">Состояние *</label>
+                                            <select id="car-condition" name="condition" required>
+                                                <option value="">Выберите состояние...</option>
+                                                <option value="Новый">Новый</option>
+                                                <option value="С пробегом">С пробегом</option>
+                                            </select>
+                                        </div>
+                                        
+                                        <div class="form-group half-width">
+                                            <label for="car-color">Цвет *</label>
+                                            <select id="car-color" name="color" required>
+                                                <option value="">Выберите цвет...</option>
+                                                <option value="Белый">Белый</option>
+                                                <option value="Черный">Черный</option>
+                                                <option value="Серебристый">Серебристый</option>
+                                                <option value="Серый">Серый</option>
+                                                <option value="Синий">Синий</option>
+                                                <option value="Красный">Красный</option>
+                                                <option value="Зеленый">Зеленый</option>
+                                                <option value="Коричневый">Коричневый</option>
+                                                <option value="Бежевый">Бежевый</option>
+                                                <option value="Желтый">Желтый</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="car-mileage">Пробег (км) *</label>
+                                            <input type="number" id="car-mileage" name="mileage" min="0" required>
+                                        </div>
+                                        
+                                        <div class="form-group half-width">
+                                            <label for="car-price">Цена (руб.)</label>
+                                            <input type="number" id="car-price" name="price" min="0" step="0.01" placeholder="Не указана">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Изображения</label>
+                                        <div id="car-images-container">
+                                            <div class="image-input-group">
+                                                <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                                                <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                                                <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                                                <input type="hidden" class="image-url-input" value="">
+                                                <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px;">
+                                                <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                                                <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                                                    <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="add-image-btn" class="btn btn-secondary btn-sm">+ Добавить изображение</button>
+                                    </div>
+                                    
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Добавить автомобиль</button>
+                                        <button type="reset" class="btn btn-secondary">Очистить</button>
+                                    </div>
+                                    
+                                    <div id="add-car-message" style="display: none;"></div>
+                                </form>
+                            </div>
+                            
+                            <!-- Подраздел: Добавить авто -->
+                            <div id="add-car-content" class="management-subsection" style="display: none;">
                                 <p>Функционал добавления автомобиля будет реализован позже</p>
                             </div>
                         </div>

@@ -1,4 +1,103 @@
 
+        // Функция для проверки роли пользователя и показа кнопки
+        async function checkUserRoleAndShowButton(carCard) {
+            try {
+                const response = await fetch('/api/auth/me', {
+                    credentials: 'include'
+                });
+                
+                if (response.ok) {
+                    const user = await response.json();
+                    const managerActions = carCard.querySelector('.car-manager-actions');
+                    
+                    if (managerActions && (user.role === 'Менеджер' || user.role === 'Администратор')) {
+                        managerActions.style.display = 'block';
+                    }
+                }
+            } catch (err) {
+                console.error('Ошибка проверки роли пользователя:', err);
+            }
+        }
+        
+        // Функция для инициализации обработчиков кнопок снятия с продажи
+        function initRemoveFromSaleButtons() {
+            document.querySelectorAll('.remove-from-sale-btn').forEach(btn => {
+                // Проверяем, не добавлен ли уже обработчик
+                if (btn.dataset.listenerAdded === 'true') {
+                    return;
+                }
+                
+                btn.dataset.listenerAdded = 'true';
+                
+                // Добавляем обработчик
+                btn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const carId = parseInt(btn.dataset.carId);
+                    const carCard = btn.closest('.item-card');
+                    
+                    // Подтверждение
+                    const confirmed = confirm(
+                        'Вы уверены, что хотите снять этот автомобиль с продажи?\n\n' +
+                        'Внимание: после снятия с продажи менеджер не сможет вернуть автомобиль обратно в продажу. ' +
+                        'Это действие может выполнить только администратор.'
+                    );
+                    
+                    if (!confirmed) {
+                        return;
+                    }
+                    
+                    // Дополнительное подтверждение
+                    const doubleConfirmed = confirm(
+                        'Это действие необратимо для менеджера. Вы действительно хотите продолжить?'
+                    );
+                    
+                    if (!doubleConfirmed) {
+                        return;
+                    }
+                    
+                    // Отключаем кнопку на время запроса
+                    btn.disabled = true;
+                    btn.textContent = 'Обработка...';
+                    
+                    try {
+                        const response = await fetch(`/api/cars/${carId}/remove-from-sale`, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.detail || 'Ошибка при снятии автомобиля с продажи');
+                        }
+                        
+                        // Успешно снято - показываем сообщение и скрываем карточку
+                        alert('Автомобиль успешно снят с продажи');
+                        
+                        // Скрываем карточку из списка
+                        if (carCard) {
+                            carCard.style.opacity = '0.5';
+                            carCard.style.pointerEvents = 'none';
+                            // Можно также полностью удалить: carCard.remove();
+                        }
+                        
+                    } catch (err) {
+                        console.error('Ошибка снятия автомобиля с продажи:', err);
+                        alert('Ошибка: ' + (err.message || 'Не удалось снять автомобиль с продажи'));
+                        
+                        // Восстанавливаем кнопку
+                        btn.disabled = false;
+                        btn.textContent = 'Снять с продажи';
+                    }
+                });
+            });
+        }
+
         // ==== Создание карточки автомобиля ====
         function createCarCard(car) {
             const carCard = document.createElement('div');
@@ -59,7 +158,15 @@
                     <div class="item-price">Цена: <span>${price} ₽</span></div>
                     <a href="/cars/${car.car_id}" class="btn btn-primary car-price-btn">Подробнее о автомобиле</a>
                 </div>
+                <div class="car-manager-actions" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
+                    <button type="button" class="btn btn-danger btn-sm remove-from-sale-btn" data-car-id="${car.car_id}">
+                        Снять с продажи
+                    </button>
+                </div>
             `;
+
+            // Проверяем роль пользователя и показываем кнопку для менеджеров/админов
+            checkUserRoleAndShowButton(carCard);
 
             return carCard;
         }
@@ -595,10 +702,12 @@
                         const carCard = createCarCard(car);
                         const carCadWithCarousel = initializeCarousels(carCard)
                         carsGrid.appendChild(carCard);
-
                     });
                     hasMore = data.has_more;
                     offset += data.cars.length;
+                    
+                    // Инициализируем обработчики для кнопок снятия с продажи
+                    initRemoveFromSaleButtons();
                 }
 
                 loader.style.display = 'none';

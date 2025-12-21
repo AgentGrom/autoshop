@@ -2996,3 +2996,300 @@ textarea.form-control {
         width: 100%;
     }
 }
+
+/* Стили для формы добавления автомобиля */
+#add-car-form {
+    background: #ffffff;
+    padding: 30px;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border: 1px solid #e0e0e0;
+}
+
+#add-car-form .form-group {
+    margin-bottom: 24px;
+}
+
+#add-car-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+}
+
+#add-car-form .form-group label::after {
+    content: '';
+    margin-left: 4px;
+}
+
+#add-car-form input[type="text"],
+#add-car-form input[type="number"],
+#add-car-form select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: inherit;
+}
+
+#add-car-form input[type="text"]:focus,
+#add-car-form input[type="number"]:focus,
+#add-car-form select:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    background: #fafafa;
+}
+
+#add-car-form input[type="text"]:hover,
+#add-car-form input[type="number"]:hover,
+#add-car-form select:hover {
+    border-color: #b3d9ff;
+}
+
+#add-car-form select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+#add-car-form .image-input-group {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+#add-car-form .image-input-group:hover {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
+#add-car-form .image-url-input,
+#add-car-form .image-alt-input {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+#add-car-form .image-url-input:focus,
+#add-car-form .image-alt-input:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    outline: none;
+}
+
+#add-car-form .image-url-input {
+    flex: 1;
+    min-width: 0;
+}
+
+#add-car-form .image-alt-input {
+    width: 200px;
+    min-width: 150px;
+}
+
+#add-car-form .remove-image-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+#add-car-form #add-image-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+#add-car-form #add-image-btn:hover {
+    background: #0052a3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#add-car-form .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 1px solid #e0e0e0;
+}
+
+#add-car-form .form-actions .btn {
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+}
+
+#add-car-form .form-actions .btn-primary {
+    background: #0066cc;
+    color: #fff;
+    flex: 1;
+}
+
+#add-car-form .form-actions .btn-primary:hover {
+    background: #0052a3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 102, 204, 0.3);
+}
+
+#add-car-form .form-actions .btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    padding: 12px 24px;
+}
+
+#add-car-form .form-actions .btn-secondary:hover {
+    background: #e0e0e0;
+    transform: translateY(-1px);
+}
+
+#add-car-message {
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 20px;
+    animation: slideIn 0.3s ease;
+}
+
+#add-car-message.success-message {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+#add-car-message.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+#add-car-content h3 {
+    color: #333;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #0066cc;
+}
+
+/* Адаптивность для формы добавления автомобиля */
+@media (max-width: 768px) {
+    #add-car-form {
+        padding: 20px;
+    }
+    
+    #add-car-form .image-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    #add-car-form .image-url-input,
+    #add-car-form .image-alt-input {
+        width: 100%;
+    }
+    
+    #add-car-form .form-actions {
+        flex-direction: column;
+    }
+    
+    #add-car-form .form-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Стили для автодополнения моделей */
+.suggestions-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    z-index: 1000;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    margin-top: -1px;
+}
+
+.suggestions-dropdown .suggestion-item {
+    padding: 10px 16px;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background-color 0.2s;
+    font-size: 14px;
+}
+
+.suggestions-dropdown .suggestion-item:last-child {
+    border-bottom: none;
+}
+
+.suggestions-dropdown .suggestion-item:hover,
+.suggestions-dropdown .suggestion-item.selected {
+    background-color: #f0f7ff;
+    color: #0066cc;
+}
+
+.suggestions-dropdown .suggestion-item:active {
+    background-color: #e0f0ff;
+}
+
+/* Стили для кнопки "Характеристики" */
+#toggle-specs-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+#toggle-specs-btn:hover {
+    background: #e0e0e0;
+    border-color: #ccc;
+}
+
+#trim-specs-section {
+    margin-top: 20px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}

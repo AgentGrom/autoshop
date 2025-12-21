@@ -219,6 +219,7 @@ class Car(Base):
     mileage: Mapped[int] = mapped_column(Integer)  # пробег в км
     color: Mapped[ColorEnum] = mapped_column(String(30))
     price: Mapped[float] = mapped_column(DECIMAL(12, 2), nullable=True)  # цена для продажи
+    is_visible: Mapped[bool] = mapped_column(Boolean, default=True)  # видимость в списке
     
     # Связь с таблицей комплектаций
     trim: Mapped["CarTrim"] = relationship("CarTrim", back_populates="cars")

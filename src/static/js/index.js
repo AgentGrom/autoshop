@@ -393,6 +393,17 @@ function initializeCarousels() {
 
         // (wrapper/img стили выставлены выше; здесь остаётся логика индикаторов/кнопок/автоплея)
 
+        // Удаляем старый контейнер индикаторов, если он есть
+        if (indicatorsContainer) {
+            indicatorsContainer.remove();
+        }
+        
+        // Удаляем уже созданные индикаторы, если они есть (на случай повторной инициализации)
+        const existingIndicators = wrapper.querySelector('.carousel-indicators');
+        if (existingIndicators) {
+            existingIndicators.remove();
+        }
+
         // Создаем индикаторы внутри wrapper для правильного z-index
         const indicatorsWrapper = document.createElement('div');
         indicatorsWrapper.className = 'carousel-indicators';
@@ -503,8 +514,8 @@ function initializeCarousels() {
             // Показываем новое изображение
             images[targetIndex].style.opacity = '1';
 
-            // Обновляем индикаторы
-            const indicators = carousel.querySelectorAll('.indicator');
+            // Обновляем индикаторы (ищем внутри wrapper, где они были созданы)
+            const indicators = wrapper.querySelectorAll('.indicator');
             indicators.forEach((ind, i) => {
                 ind.classList.toggle('active', i === targetIndex);
             });
