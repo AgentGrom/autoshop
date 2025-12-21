@@ -54,6 +54,7 @@
                         <button class="account-tab active" data-tab="profile">Профиль</button>
                         <button class="account-tab" data-tab="orders">Заказы</button>
                         <button class="account-tab" data-tab="addresses">Адреса</button>
+                        <button class="account-tab" data-tab="management" id="management-tab" style="display: none;">Управление</button>
                     </div>
 
                     <!-- Раздел: Профиль -->
@@ -375,6 +376,46 @@
                         </div>
                         <div id="addresses-error" style="display: none; text-align: center; padding: 20px; color: #d32f2f;">
                             <p>Ошибка загрузки адресов</p>
+                        </div>
+                    </div>
+
+                    <!-- Раздел: Управление (для менеджеров и администраторов) -->
+                    <div id="management-section" class="account-section">
+                        <div class="account-loader" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Загрузка...</p>
+                        </div>
+                        <div id="management-content" style="display: block;">
+                            <div class="management-tabs" style="margin-bottom: 20px; border-bottom: 2px solid #e0e0e0;">
+                                <button class="management-tab active" data-tab="orders-management" style="padding: 10px 20px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 16px; margin-right: 20px;">Управление заказами</button>
+                                <button class="management-tab" data-tab="add-part" style="padding: 10px 20px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 16px; margin-right: 20px;">Добавить запчасть</button>
+                                <button class="management-tab" data-tab="add-car" style="padding: 10px 20px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-size: 16px;">Добавить авто</button>
+                            </div>
+                            
+                            <!-- Подраздел: Управление заказами -->
+                            <div id="orders-management-content" class="management-subsection">
+                                <div class="account-loader" style="display: none;">
+                                    <div class="spinner"></div>
+                                    <p>Загрузка заказов...</p>
+                                </div>
+                                <div id="orders-management-list" style="display: none;"></div>
+                                <div id="orders-management-empty" style="display: none; text-align: center; padding: 40px;">
+                                    <p style="font-size: 18px; color: #666;">Нет заказов для управления</p>
+                                </div>
+                                <div id="orders-management-error" style="display: none; text-align: center; padding: 20px; color: #d32f2f;">
+                                    <p>Ошибка загрузки заказов</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Подраздел: Добавить запчасть -->
+                            <div id="add-part-content" class="management-subsection" style="display: none;">
+                                <p>Функционал добавления запчасти будет реализован позже</p>
+                            </div>
+                            
+                            <!-- Подраздел: Добавить авто -->
+                            <div id="add-car-content" class="management-subsection" style="display: none;">
+                                <p>Функционал добавления автомобиля будет реализован позже</p>
+                            </div>
                         </div>
                     </div>
                 </div>

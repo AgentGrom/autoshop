@@ -10,7 +10,7 @@ from typing import Optional
 
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
-from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, PickupPoint, UserAddress
+from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum
 from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
 
 router = APIRouter(prefix="/account", tags=["account"])
@@ -342,4 +342,252 @@ async def verify_code(
         }
     else:
         raise HTTPException(status_code=400, detail="Неверный тип подтверждения")
+
+
+@router.get("/api/management/orders")
+async def get_management_orders(
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить заказы для управления (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    from sqlalchemy import case
+    
+    # Создаем приоритеты для статусов: Отправлен (1) → В обработке (2)
+    status_priority = case(
+        (Order.status == OrderStatusEnum.SHIPPED.value, 1),
+        (Order.status == OrderStatusEnum.PROCESSING.value, 2),
+        else_=3
+    )
+    
+    # Получаем только заказы, которые не доставлены и не отменены
+    result = await session.execute(
+        select(Order)
+        .options(
+            selectinload(Order.order_items).selectinload(OrderItem.part).selectinload(Part.images),
+            selectinload(Order.car_orders).selectinload(CarOrder.car).selectinload(Car.images),
+            selectinload(Order.car_orders).selectinload(CarOrder.car).selectinload(Car.trim),
+            selectinload(Order.pickup_point),
+            selectinload(Order.shipping_address),
+            selectinload(Order.user)
+        )
+        .where(
+            Order.status != OrderStatusEnum.DELIVERED.value,
+            Order.status != OrderStatusEnum.CANCELLED.value
+        )
+        .order_by(status_priority.asc(), Order.order_date.desc())
+    )
+    orders = result.scalars().all()
+    
+    orders_data = []
+    for order in orders:
+        # Подсчитываем общую сумму заказа
+        total_amount = float(order.service_fee or 0) + float(order.shipping_cost or 0) - float(order.discount or 0)
+        
+        # Сумма за товары (запчасти)
+        parts_total = 0.0
+        order_items_data = []
+        for item in order.order_items:
+            part_price = float(item.part.price)
+            item_total = part_price * item.quantity
+            parts_total += item_total
+            order_items_data.append({
+                "part_id": item.part_id,
+                "part_name": item.part.part_name,
+                "manufacturer": item.part.manufacturer,
+                "quantity": item.quantity,
+                "price": part_price,
+                "total": item_total,
+                "image": item.part.images[0].url if item.part.images else "/static/images/parts/base.png"
+            })
+        
+        # Сумма за автомобили
+        cars_total = 0.0
+        car_orders_data = []
+        for car_order in order.car_orders:
+            car_price = float(car_order.car_price)
+            cars_total += car_price
+            car = car_order.car
+            brand = car.trim.brand_name.value if hasattr(car.trim.brand_name, 'value') else str(car.trim.brand_name) if car.trim.brand_name else "—"
+            model = car.trim.model_name if car.trim.model_name else "—"
+            year = car.production_year if car.production_year else None
+            car_orders_data.append({
+                "car_id": car_order.car_id,
+                "brand": brand,
+                "model": model,
+                "year": year,
+                "price": car_price,
+                "image": car.images[0].url if car.images else "/static/images/cars/base.jpeg"
+            })
+        
+        total_amount += parts_total + cars_total
+        
+        # Адрес доставки или пункт выдачи
+        delivery_info = None
+        if order.shipping_address:
+            addr = order.shipping_address
+            delivery_info = {
+                "type": "address",
+                "full_address": f"{addr.country}" + 
+                               (f", {addr.region}" if addr.region else "") + 
+                               f", {addr.city}, {addr.street}, {addr.house}" + 
+                               (f", кв. {addr.apartment}" if addr.apartment else "")
+            }
+        elif order.pickup_point:
+            pp = order.pickup_point
+            delivery_info = {
+                "type": "pickup",
+                "full_address": f"{pp.country}, {pp.region}, {pp.city}, {pp.street}, {pp.house}"
+            }
+        
+        # Информация о пользователе
+        user_info = {
+            "user_id": order.user.user_id,
+            "email": order.user.email,
+            "first_name": order.user.first_name,
+            "last_name": order.user.last_name,
+            "phone_number": order.user.phone_number
+        }
+        
+        orders_data.append({
+            "order_id": order.order_id,
+            "order_date": order.order_date.isoformat() if order.order_date else None,
+            "status": order.status.value if hasattr(order.status, 'value') else str(order.status),
+            "status_updated": order.status_updated.isoformat() if order.status_updated else None,
+            "payment_method": order.payment_method.value if hasattr(order.payment_method, 'value') else str(order.payment_method),
+            "is_paid": order.is_paid,
+            "service_fee": float(order.service_fee or 0),
+            "shipping_cost": float(order.shipping_cost or 0),
+            "discount": float(order.discount or 0),
+            "total_amount": total_amount,
+            "tracking_number": order.tracking_number,
+            "estimated_delivery": order.estimated_delivery.isoformat() if order.estimated_delivery else None,
+            "customer_notes": order.customer_notes,
+            "admin_notes": order.admin_notes,
+            "order_items": order_items_data,
+            "car_orders": car_orders_data,
+            "delivery_info": delivery_info,
+            "user": user_info
+        })
+    
+    return {"orders": orders_data}
+
+
+class UpdateOrderStatusRequest(BaseModel):
+    status: Optional[str] = None
+    is_paid: Optional[bool] = None
+    admin_notes: Optional[str] = None
+
+
+@router.put("/api/management/orders/{order_id}/status")
+async def update_order_status(
+    order_id: int,
+    status_data: UpdateOrderStatusRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Изменить статус заказа (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем, что заказ существует (загружаем order_items для возможной отмены заказа)
+    stmt = (
+        select(Order)
+        .where(Order.order_id == order_id)
+        .options(selectinload(Order.order_items))
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # Проверяем, что заказ не доставлен и не отменен (их нельзя менять)
+    if order.status == OrderStatusEnum.DELIVERED.value:
+        raise HTTPException(status_code=400, detail="Нельзя изменить статус доставленного заказа")
+    
+    if order.status == OrderStatusEnum.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Нельзя изменить статус отмененного заказа")
+    
+    # Формируем словарь для обновления
+    update_values = {}
+    
+    # Если изменяется статус
+    if status_data.status is not None:
+        # Валидация нового статуса
+        valid_statuses = [OrderStatusEnum.PROCESSING.value, OrderStatusEnum.SHIPPED.value, OrderStatusEnum.DELIVERED.value, OrderStatusEnum.CANCELLED.value]
+        if status_data.status not in valid_statuses:
+            raise HTTPException(status_code=400, detail=f"Неверный статус. Допустимые значения: {', '.join(valid_statuses)}")
+        
+        # Проверяем логику переходов статусов
+        current_status = order.status
+        
+        # Если пытаемся установить "Доставлен", проверяем что текущий статус "Отправлен"
+        if status_data.status == OrderStatusEnum.DELIVERED.value:
+            if current_status != OrderStatusEnum.SHIPPED.value:
+                raise HTTPException(status_code=400, detail="Можно установить статус 'Доставлен' только для заказов со статусом 'Отправлен'")
+        
+        # Если пытаемся установить "Отправлен", проверяем что текущий статус "В обработке"
+        if status_data.status == OrderStatusEnum.SHIPPED.value:
+            if current_status != OrderStatusEnum.PROCESSING.value:
+                raise HTTPException(status_code=400, detail="Можно установить статус 'Отправлен' только для заказов со статусом 'В обработке'")
+        
+        # Если отменяем заказ, возвращаем товары на склад
+        if status_data.status == OrderStatusEnum.CANCELLED.value:
+            if order.order_items:
+                from src.database.models import Part
+                for item in order.order_items:
+                    part_stmt = select(Part).where(Part.part_id == item.part_id)
+                    part_result = await session.execute(part_stmt)
+                    part = part_result.scalar_one_or_none()
+                    if part:
+                        new_stock = (part.stock_count or 0) + item.quantity
+                        await session.execute(
+                            update(Part)
+                            .where(Part.part_id == item.part_id)
+                            .values(stock_count=new_stock)
+                        )
+        
+        update_values["status"] = status_data.status
+    
+    # Если изменяется статус оплаты
+    if status_data.is_paid is not None:
+        update_values["is_paid"] = status_data.is_paid
+    
+    # Если изменяются комментарии администратора
+    if status_data.admin_notes is not None:
+        update_values["admin_notes"] = status_data.admin_notes
+    
+    # Проверяем, что есть что обновлять
+    if not update_values:
+        raise HTTPException(status_code=400, detail="Не указано, что нужно обновить (status, is_paid или admin_notes)")
+    
+    await session.execute(
+        update(Order)
+        .where(Order.order_id == order_id)
+        .values(**update_values)
+    )
+    await session.commit()
+    
+    # Формируем сообщение об успехе
+    messages = []
+    if status_data.status is not None:
+        messages.append(f"Статус изменен на '{status_data.status}'")
+    if status_data.is_paid is not None:
+        messages.append(f"Статус оплаты изменен на {'оплачен' if status_data.is_paid else 'не оплачен'}")
+    if status_data.admin_notes is not None:
+        messages.append("Комментарии обновлены")
+    
+    return {
+        "success": True,
+        "message": ". ".join(messages),
+        "order_id": order_id,
+        "new_status": status_data.status if status_data.status else order.status,
+        "is_paid": status_data.is_paid if status_data.is_paid is not None else order.is_paid,
+        "admin_notes": status_data.admin_notes if status_data.admin_notes is not None else order.admin_notes
+    }
 

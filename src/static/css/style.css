@@ -2120,6 +2120,43 @@ textarea.form-control {
     border-bottom-color: #0066cc;
 }
 
+/* Вкладки управления (для менеджеров) */
+.management-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #e0e0e0;
+    margin-bottom: 20px;
+}
+
+.management-tab {
+    padding: 10px 20px;
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    transition: all 0.3s;
+    margin-right: 20px;
+}
+
+.management-tab:hover {
+    color: #007bff;
+}
+
+.management-tab.active {
+    color: #007bff;
+    border-bottom-color: #007bff;
+}
+
+.management-subsection {
+    display: none;
+}
+
+.management-subsection.active {
+    display: block;
+}
+
 .account-section {
     display: none;
 }

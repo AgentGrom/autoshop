@@ -103,6 +103,23 @@ document.addEventListener('DOMContentLoaded', async () => {
         console.error('Error loading initial section:', err);
     }
     
+    // Инициализируем вкладки управления (только для менеджеров и администраторов)
+    // Проверяем роль пользователя перед инициализацией
+    try {
+        const profileResponse = await fetch('/account/api/profile');
+        if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            const userRole = profileData.role;
+            if (userRole === 'Менеджер' || userRole === 'MANAGER' || userRole === 'Администратор' || userRole === 'ADMIN') {
+                if (document.querySelector('.management-tab')) {
+                    initManagementTabs();
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Ошибка проверки роли для инициализации вкладок управления:', err);
+    }
+    
     // Обработчики для редактирования профиля (имя, фамилия, отчество)
     const editProfileBtn = document.getElementById('edit-profile-btn');
     const cancelEditBtn = document.getElementById('cancel-edit-btn');
@@ -351,6 +368,9 @@ async function loadProfile() {
         
         // Показываем плашку верификации, если нужно
         updateVerificationBanner(data);
+        
+        // Показываем вкладку "Управление" для менеджера и администратора
+        showManagementTab(data.role);
         
         loader.style.display = 'none';
         content.style.display = 'block';
@@ -1016,7 +1036,413 @@ async function cancelOrder(orderId) {
     }
 }
 
+// Показ вкладки "Управление" для менеджера и администратора
+function showManagementTab(role) {
+    const managementTab = document.getElementById('management-tab');
+    
+    if (!managementTab) {
+        return;
+    }
+    
+    // Показываем вкладку только для менеджера и администратора
+    if (role === 'Менеджер' || role === 'MANAGER' || role === 'Администратор' || role === 'ADMIN') {
+        managementTab.style.display = 'inline-block';
+    } else {
+        managementTab.style.display = 'none';
+    }
+}
+
+// ========== УПРАВЛЕНИЕ ЗАКАЗАМИ (для менеджеров и администраторов) ==========
+
+// Инициализация вкладок управления
+function initManagementTabs() {
+    const managementTabs = document.querySelectorAll('.management-tab');
+    const managementSubsections = document.querySelectorAll('.management-subsection');
+    
+    managementTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const targetTab = tab.dataset.tab;
+            
+            // Убираем активный класс со всех вкладок и подразделов
+            managementTabs.forEach(t => {
+                t.classList.remove('active');
+                t.style.borderBottomColor = 'transparent';
+            });
+            managementSubsections.forEach(s => s.style.display = 'none');
+            
+            // Добавляем активный класс к выбранной вкладке
+            tab.classList.add('active');
+            tab.style.borderBottomColor = '#007bff';
+            
+            // Показываем соответствующий подраздел
+            const targetSubsection = document.getElementById(`${targetTab}-content`);
+            if (targetSubsection) {
+                targetSubsection.style.display = 'block';
+                
+                // Загружаем данные для раздела управления заказами
+                if (targetTab === 'orders-management') {
+                    loadManagementOrders();
+                }
+            }
+        });
+    });
+    
+    // Активируем первую вкладку по умолчанию
+    if (managementTabs.length > 0) {
+        const firstTab = managementTabs[0];
+        firstTab.classList.add('active');
+        firstTab.style.borderBottomColor = '#007bff';
+        const firstSubsection = document.getElementById(`${firstTab.dataset.tab}-content`);
+        if (firstSubsection) {
+            firstSubsection.style.display = 'block';
+            if (firstTab.dataset.tab === 'orders-management') {
+                loadManagementOrders();
+            }
+        }
+    }
+}
+
+// Загрузка заказов для управления
+async function loadManagementOrders() {
+    const loader = document.querySelector('#orders-management-content .account-loader');
+    const content = document.getElementById('orders-management-list');
+    const empty = document.getElementById('orders-management-empty');
+    const error = document.getElementById('orders-management-error');
+    
+    if (!loader || !content || !empty || !error) {
+        return;
+    }
+    
+    loader.style.display = 'flex';
+    content.style.display = 'none';
+    empty.style.display = 'none';
+    error.style.display = 'none';
+    
+    try {
+        const response = await fetch('/account/api/management/orders');
+        if (!response.ok) {
+            // Если 403 - это нормально для обычных пользователей, просто не показываем ошибку
+            if (response.status === 403) {
+                loader.style.display = 'none';
+                empty.style.display = 'block';
+                return;
+            }
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        const orders = data.orders || [];
+        
+        loader.style.display = 'none';
+        
+        if (orders.length === 0) {
+            empty.style.display = 'block';
+        } else {
+            content.style.display = 'block';
+            renderManagementOrders(orders);
+        }
+    } catch (err) {
+        console.error('Ошибка загрузки заказов для управления:', err);
+        loader.style.display = 'none';
+        // Не показываем ошибку пользователю, если это 403
+        if (err.message && !err.message.includes('403')) {
+            error.style.display = 'block';
+            await showError(err);
+        } else {
+            empty.style.display = 'block';
+        }
+    }
+}
+
+// Отображение заказов для управления
+function renderManagementOrders(orders) {
+    const container = document.getElementById('orders-management-list');
+    if (!container) return;
+    
+    container.innerHTML = orders.map(order => {
+        const orderDate = order.order_date ? new Date(order.order_date).toLocaleDateString('ru-RU') : '—';
+        const statusUpdated = order.status_updated ? new Date(order.status_updated).toLocaleDateString('ru-RU') : '—';
+        
+        // Определяем доступные действия в зависимости от текущего статуса
+        let statusActions = '';
+        if (order.status === 'В обработке') {
+            statusActions = `
+                <button class="btn btn-primary btn-sm" onclick="updateOrderStatus(${order.order_id}, 'Отправлен', null)">
+                    Отметить как "Отправлен"
+                </button>
+                <button class="btn btn-info btn-sm" onclick="updateOrderPaymentStatus(${order.order_id}, ${!order.is_paid})">
+                    ${order.is_paid ? 'Отметить как не оплачен' : 'Отметить как оплачен'}
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="updateOrderStatus(${order.order_id}, 'Отменен', null)">
+                    Отменить заказ
+                </button>
+            `;
+        } else if (order.status === 'Отправлен') {
+            statusActions = `
+                <button class="btn btn-success btn-sm" onclick="updateOrderStatus(${order.order_id}, 'Доставлен', null)">
+                    Отметить как "Доставлен"
+                </button>
+                <button class="btn btn-info btn-sm" onclick="updateOrderPaymentStatus(${order.order_id}, ${!order.is_paid})">
+                    ${order.is_paid ? 'Отметить как не оплачен' : 'Отметить как оплачен'}
+                </button>
+                <button class="btn btn-danger btn-sm" onclick="updateOrderStatus(${order.order_id}, 'Отменен', null)">
+                    Отменить заказ
+                </button>
+            `;
+        }
+        
+        // Информация о товарах
+        let itemsHtml = '';
+        if (order.order_items && order.order_items.length > 0) {
+            itemsHtml = order.order_items.map(item => `
+                <div class="order-item" style="display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #eee;">
+                    <img src="${item.image}" alt="${item.part_name}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">${item.part_name}</div>
+                        <div style="font-size: 14px; color: #666;">${item.manufacturer || '—'}</div>
+                        <div style="font-size: 14px; color: #666;">Количество: ${item.quantity} x ${item.price.toFixed(2)} ₽</div>
+                    </div>
+                    <div style="font-weight: 600;">${item.total.toFixed(2)} ₽</div>
+                </div>
+            `).join('');
+        }
+        
+        // Информация об автомобилях
+        let carsHtml = '';
+        if (order.car_orders && order.car_orders.length > 0) {
+            carsHtml = order.car_orders.map(car => `
+                <div class="order-item" style="display: flex; align-items: center; gap: 15px; padding: 10px; border-bottom: 1px solid #eee;">
+                    <img src="${car.image}" alt="${car.brand} ${car.model}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 4px;">
+                    <div style="flex: 1;">
+                        <div style="font-weight: 500;">${car.brand} ${car.model}${car.year ? ` (${car.year})` : ''}</div>
+                    </div>
+                    <div style="font-weight: 600;">${car.price.toFixed(2)} ₽</div>
+                </div>
+            `).join('');
+        }
+        
+        // Информация о клиенте
+        const customerInfo = order.user ? `
+            <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee;">
+                <strong>Клиент:</strong> ${order.user.first_name || ''} ${order.user.last_name || ''}<br>
+                <strong>Email:</strong> ${order.user.email || '—'}<br>
+                ${order.user.phone_number ? `<strong>Телефон:</strong> ${order.user.phone_number}` : ''}
+            </div>
+        ` : '';
+        
+        return `
+            <div class="order-card" style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
+                    <div>
+                        <h3 style="margin: 0 0 5px 0;">Заказ #${order.order_id}</h3>
+                        <div style="font-size: 14px; color: #666;">
+                            Дата: ${orderDate} | Обновлен: ${statusUpdated}
+                        </div>
+                    </div>
+                    <div style="text-align: right;">
+                        <div style="font-size: 18px; font-weight: 600; color: #007bff; margin-bottom: 5px;">
+                            ${order.total_amount.toFixed(2)} ₽
+                        </div>
+                        <div style="padding: 5px 10px; background: ${order.status === 'В обработке' ? '#ffc107' : order.status === 'Отправлен' ? '#17a2b8' : '#28a745'}; color: #fff; border-radius: 4px; display: inline-block; font-size: 12px;">
+                            ${order.status}
+                        </div>
+                        ${order.is_paid ? '<div style="margin-top: 5px; font-size: 12px; color: #28a745;">✓ Оплачен</div>' : '<div style="margin-top: 5px; font-size: 12px; color: #dc3545;">Не оплачен</div>'}
+                    </div>
+                </div>
+                
+                ${itemsHtml || carsHtml ? `
+                    <div style="margin-bottom: 15px;">
+                        ${itemsHtml}
+                        ${carsHtml}
+                    </div>
+                ` : ''}
+                
+                ${order.delivery_info ? `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+                        <strong>Доставка:</strong> ${order.delivery_info.full_address}
+                    </div>
+                ` : ''}
+                
+                ${order.customer_notes ? `
+                    <div style="margin-bottom: 15px; padding: 10px; background: #fff3cd; border-left: 3px solid #ffc107; border-radius: 4px;">
+                        <strong>Комментарий клиента:</strong><br>
+                        <div style="margin-top: 5px; color: #666;">${order.customer_notes}</div>
+                    </div>
+                ` : ''}
+                
+                <div style="margin-bottom: 15px; padding: 10px; background: #e7f3ff; border-left: 3px solid #007bff; border-radius: 4px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 5px;">
+                        <strong>Комментарии менеджера:</strong>
+                        <button class="btn btn-sm btn-secondary" onclick="toggleEditAdminNotes(${order.order_id})" style="padding: 2px 6px; font-size: 11px;">
+                            ${order.admin_notes ? 'Редактировать' : 'Добавить'}
+                        </button>
+                    </div>
+                    <div id="admin-notes-display-${order.order_id}" style="margin-top: 5px; color: #666; ${order.admin_notes ? '' : 'font-style: italic; color: #999;'}">
+                        ${order.admin_notes || 'Комментариев нет'}
+                    </div>
+                    <div id="admin-notes-edit-${order.order_id}" style="display: none; margin-top: 10px;">
+                        <textarea id="admin-notes-text-${order.order_id}" class="form-control" rows="3" style="width: 100%; margin-bottom: 10px;">${order.admin_notes || ''}</textarea>
+                        <div style="display: flex; gap: 10px;">
+                            <button class="btn btn-sm btn-primary" onclick="saveAdminNotes(${order.order_id})" style="padding: 4px 12px; font-size: 12px;">Сохранить</button>
+                            <button class="btn btn-sm btn-secondary" onclick="cancelEditAdminNotes(${order.order_id})" style="padding: 4px 12px; font-size: 12px;">Отмена</button>
+                        </div>
+                    </div>
+                </div>
+                
+                ${customerInfo}
+                
+                <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${statusActions}
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Обновление статуса заказа
+async function updateOrderStatus(orderId, newStatus, isPaid) {
+    if (!confirm(`Вы уверены, что хотите изменить статус заказа #${orderId} на "${newStatus}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/account/api/management/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: newStatus,
+                is_paid: isPaid
+            })
+        });
+        
+        if (!response.ok) {
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        await showError(data.message || 'Статус заказа успешно обновлен');
+        
+        // Перезагружаем список заказов
+        await loadManagementOrders();
+    } catch (err) {
+        console.error('Ошибка обновления статуса заказа:', err);
+        await showError(err);
+    }
+}
+
+// Обновление статуса оплаты заказа
+async function updateOrderPaymentStatus(orderId, isPaid) {
+    const statusText = isPaid ? 'оплачен' : 'не оплачен';
+    if (!confirm(`Вы уверены, что хотите изменить статус оплаты заказа #${orderId} на "${statusText}"?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/account/api/management/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                is_paid: isPaid
+            })
+        });
+        
+        if (!response.ok) {
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        await showError(data.message || `Статус оплаты заказа успешно изменен на "${statusText}"`);
+        
+        // Перезагружаем список заказов
+        await loadManagementOrders();
+    } catch (err) {
+        console.error('Ошибка обновления статуса оплаты заказа:', err);
+        await showError(err);
+    }
+}
+
+// Управление комментариями администратора
+function toggleEditAdminNotes(orderId) {
+    const displayDiv = document.getElementById(`admin-notes-display-${orderId}`);
+    const editDiv = document.getElementById(`admin-notes-edit-${orderId}`);
+    
+    if (displayDiv && editDiv) {
+        displayDiv.style.display = displayDiv.style.display === 'none' ? 'block' : 'none';
+        editDiv.style.display = editDiv.style.display === 'none' ? 'block' : 'none';
+    }
+}
+
+function cancelEditAdminNotes(orderId) {
+    const displayDiv = document.getElementById(`admin-notes-display-${orderId}`);
+    const editDiv = document.getElementById(`admin-notes-edit-${orderId}`);
+    const textarea = document.getElementById(`admin-notes-text-${orderId}`);
+    
+    if (displayDiv && editDiv && textarea) {
+        // Восстанавливаем исходное значение
+        const originalNotes = displayDiv.textContent.trim() === 'Комментариев нет' ? '' : displayDiv.textContent.trim();
+        textarea.value = originalNotes;
+        displayDiv.style.display = 'block';
+        editDiv.style.display = 'none';
+    }
+}
+
+async function saveAdminNotes(orderId) {
+    const textarea = document.getElementById(`admin-notes-text-${orderId}`);
+    if (!textarea) return;
+    
+    const adminNotes = textarea.value.trim();
+    
+    try {
+        const response = await fetch(`/account/api/management/orders/${orderId}/status`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                admin_notes: adminNotes
+            })
+        });
+        
+        if (!response.ok) {
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
+        }
+        
+        const data = await response.json();
+        
+        // Обновляем отображение
+        const displayDiv = document.getElementById(`admin-notes-display-${orderId}`);
+        const editDiv = document.getElementById(`admin-notes-edit-${orderId}`);
+        
+        if (displayDiv && editDiv) {
+            displayDiv.textContent = adminNotes || 'Комментариев нет';
+            displayDiv.style.fontStyle = adminNotes ? 'normal' : 'italic';
+            displayDiv.style.color = adminNotes ? '#666' : '#999';
+            displayDiv.style.display = 'block';
+            editDiv.style.display = 'none';
+        }
+        
+        await showError(data.message || 'Комментарии успешно сохранены');
+    } catch (err) {
+        console.error('Ошибка сохранения комментариев:', err);
+        await showError(err);
+    }
+}
+
 // Экспортируем функции для использования в HTML
 window.payOrder = payOrder;
 window.cancelOrder = cancelOrder;
+window.updateOrderStatus = updateOrderStatus;
+window.updateOrderPaymentStatus = updateOrderPaymentStatus;
+window.toggleEditAdminNotes = toggleEditAdminNotes;
+window.cancelEditAdminNotes = cancelEditAdminNotes;
+window.saveAdminNotes = saveAdminNotes;
+window.updateOrderPaymentStatus = updateOrderPaymentStatus;
 
