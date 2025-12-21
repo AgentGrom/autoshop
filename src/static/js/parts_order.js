@@ -22,6 +22,17 @@ async function loadOrderData() {
             if (cartResponse.status === 401) {
                 throw new Error('Для оформления заказа необходимо войти в аккаунт');
             }
+            if (cartResponse.status === 403) {
+                // Аккаунт не активирован
+                loader.style.display = 'none';
+                error.style.display = 'block';
+                document.getElementById('order-error-message').innerHTML = `
+                    <strong>Аккаунт не активирован</strong><br>
+                    Для оформления заказа необходимо подтвердить ваш email.<br>
+                    <a href="/account" style="color: #1976d2; text-decoration: underline; margin-top: 10px; display: inline-block;">Перейти в личный кабинет</a>
+                `;
+                return;
+            }
             throw new Error('Ошибка загрузки корзины');
         }
         
@@ -344,8 +355,14 @@ async function submitOrder() {
         });
         
         if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Ошибка создания заказа');
+            if (response.status === 403) {
+                // Аккаунт не активирован
+                alert('Для оформления заказа необходимо активировать аккаунт. Пожалуйста, подтвердите ваш email в личном кабинете.');
+                window.location.href = '/account';
+                return;
+            }
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
         }
         
         const data = await response.json();
@@ -353,7 +370,7 @@ async function submitOrder() {
         window.location.href = '/';
     } catch (err) {
         console.error('Ошибка оформления заказа:', err);
-        alert(err.message || 'Ошибка оформления заказа');
+        await showError(err, 'Ошибка оформления заказа');
         submitBtn.disabled = false;
         submitBtn.textContent = 'Оформить заказ';
     }

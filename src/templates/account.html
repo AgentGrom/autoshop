@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Личный кабинет — AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <!-- Навигация будет обновлена динамически через auth.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="account-container">
+                <div class="block-header">
+                    <h2>👤 Личный кабинет</h2>
+                </div>
+                
+                <div class="block-content">
+                    <!-- Плашка верификации -->
+                    <div id="verification-banner" style="display: none; margin-bottom: 20px;">
+                        <div class="verification-banner">
+                            <div class="verification-banner-content">
+                                <div class="verification-banner-icon">⚠️</div>
+                                <div class="verification-banner-text">
+                                    <strong id="verification-banner-title"></strong>
+                                    <span id="verification-banner-message"></span>
+                                </div>
+                            </div>
+                            <button id="verification-banner-btn" class="btn btn-primary btn-sm">Подтвердить</button>
+                        </div>
+                    </div>
+
+                    <!-- Навигация по разделам -->
+                    <div class="account-tabs">
+                        <button class="account-tab active" data-tab="profile">Профиль</button>
+                        <button class="account-tab" data-tab="orders">Заказы</button>
+                        <button class="account-tab" data-tab="addresses">Адреса</button>
+                    </div>
+
+                    <!-- Раздел: Профиль -->
+                    <div id="profile-section" class="account-section active">
+                        <div class="account-loader" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Загрузка данных...</p>
+                        </div>
+                        <div id="profile-content" style="display: none; position: relative;">
+                            <div class="profile-user-id">#<span id="profile-user-id"></span></div>
+                            <div class="profile-header">
+                                <div class="profile-photo">
+                                    <img src="{{ url_for('static', path='images/account.jpg') }}" alt="Фото профиля">
+                                </div>
+                                <div class="profile-view">
+                                    <div class="profile-info">
+                                        <div class="profile-field">
+                                            <label>Имя:</label>
+                                            <span id="profile-first-name"></span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Фамилия:</label>
+                                            <span id="profile-last-name"></span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Отчество:</label>
+                                            <span id="profile-middle-name">—</span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Email:</label>
+                                            <span id="profile-email"></span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Телефон:</label>
+                                            <span id="profile-phone">—</span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Дата регистрации:</label>
+                                            <span id="profile-registration-date"></span>
+                                        </div>
+                                        <div class="profile-field">
+                                            <label>Статус:</label>
+                                            <span id="profile-status"></span>
+                                        </div>
+                                    </div>
+                                    <div class="profile-actions">
+                                        <button id="edit-profile-btn" class="btn btn-primary">Редактировать профиль</button>
+                                        <button id="change-password-btn" class="btn btn-secondary">Изменить пароль</button>
+                                        <button id="add-phone-btn" class="btn btn-secondary" style="display: none;">Указать телефон</button>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Форма редактирования профиля (фамилия, имя, отчество) -->
+                            <div id="profile-edit-form" style="display: none;">
+                                <form id="update-profile-form" class="profile-edit-form">
+                                    <h3>Редактирование профиля</h3>
+                                    <div class="form-group">
+                                        <label for="edit-last-name">Фамилия <span class="required">*</span></label>
+                                        <input type="text" id="edit-last-name" name="last_name" class="form-control" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-first-name">Имя <span class="required">*</span></label>
+                                        <input type="text" id="edit-first-name" name="first_name" class="form-control" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="edit-middle-name">Отчество</label>
+                                        <input type="text" id="edit-middle-name" name="middle_name" class="form-control">
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                                        <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                    <div id="profile-update-error" style="display: none; color: #d32f2f; margin-top: 15px;"></div>
+                                    <div id="profile-update-success" style="display: none; color: #155724; margin-top: 15px;"></div>
+                                </form>
+                            </div>
+                            
+                            <!-- Форма смены пароля -->
+                            <div id="change-password-form" style="display: none;">
+                                <form id="update-password-form" class="profile-edit-form">
+                                    <h3>Изменение пароля</h3>
+                                    <div class="form-group">
+                                        <label for="change-current-password">Текущий пароль <span class="required">*</span></label>
+                                        <input type="password" id="change-current-password" name="current_password" class="form-control" required>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="change-new-password">Новый пароль <span class="required">*</span></label>
+                                        <input type="password" id="change-new-password" name="new_password" class="form-control" required>
+                                        <small class="form-text">Минимум 6 символов</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="change-confirm-password">Подтвердите новый пароль <span class="required">*</span></label>
+                                        <input type="password" id="change-confirm-password" name="confirm_password" class="form-control" required>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Изменить пароль</button>
+                                        <button type="button" id="cancel-password-btn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                    <div id="password-update-error" style="display: none; color: #d32f2f; margin-top: 15px;"></div>
+                                    <div id="password-update-success" style="display: none; color: #155724; margin-top: 15px;"></div>
+                                </form>
+                            </div>
+                            
+                            <!-- Форма указания телефона -->
+                            <div id="add-phone-form" style="display: none;">
+                                <form id="update-phone-form" class="profile-edit-form">
+                                    <h3>Указать телефон</h3>
+                                    <div class="phone-warning">
+                                        <strong>⚠️ Внимание!</strong>
+                                        <p>Пожалуйста, внимательно проверьте правильность введенного номера телефона. После сохранения изменить телефон будет невозможно.</p>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="add-phone-number">Телефон <span class="required">*</span></label>
+                                        <input type="tel" id="add-phone-number" name="phone_number" class="form-control" required>
+                                        <small class="form-text">Телефон можно указать только один раз</small>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Сохранить</button>
+                                        <button type="button" id="cancel-phone-btn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                    <div id="phone-update-error" style="display: none; color: #d32f2f; margin-top: 15px;"></div>
+                                    <div id="phone-update-success" style="display: none; color: #155724; margin-top: 15px;"></div>
+                                </form>
+                            </div>
+                        </div>
+                        <div id="profile-error" style="display: none; text-align: center; padding: 20px; color: #d32f2f;">
+                            <p>Ошибка загрузки данных профиля</p>
+                        </div>
+                    </div>
+
+                    <!-- Раздел: Заказы -->
+                    <div id="orders-section" class="account-section">
+                        <div class="account-loader" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Загрузка заказов...</p>
+                        </div>
+                        <div id="orders-content" style="display: none;">
+                            <div id="orders-empty" style="display: none; text-align: center; padding: 40px;">
+                                <p style="font-size: 18px; color: #666;">У вас пока нет заказов</p>
+                                <a href="/cars" class="btn btn-primary" style="margin-top: 20px;">Перейти к автомобилям</a>
+                                <a href="/parts" class="btn btn-primary" style="margin-top: 10px;">Перейти к запчастям</a>
+                            </div>
+                            <div id="orders-list"></div>
+                        </div>
+                        <div id="orders-error" style="display: none; text-align: center; padding: 20px; color: #d32f2f;">
+                            <p>Ошибка загрузки заказов</p>
+                        </div>
+                    </div>
+
+                    <!-- Раздел: Адреса -->
+                    <div id="addresses-section" class="account-section">
+                        <div class="account-loader" style="display: none;">
+                            <div class="spinner"></div>
+                            <p>Загрузка адресов...</p>
+                        </div>
+                        <div id="addresses-content" style="display: none;">
+                            <div class="addresses-header">
+                                <h3>Мои адреса</h3>
+                                <button id="add-address-btn" class="btn btn-primary">Добавить адрес</button>
+                            </div>
+                            
+                            <!-- Форма добавления адреса -->
+                            <div id="add-address-form" style="display: none; margin-bottom: 30px;">
+                                <form id="create-address-form" class="address-form">
+                                    <h3>Новый адрес</h3>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="addr-country">Страна <span class="required">*</span></label>
+                                            <select id="addr-country" name="country" class="form-control" required>
+                                                <option value="">Выберите страну</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-region">Область/Регион</label>
+                                            <input type="text" id="addr-region" name="region" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="addr-city">Город <span class="required">*</span></label>
+                                            <input type="text" id="addr-city" name="city" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-postal">Индекс</label>
+                                            <input type="text" id="addr-postal" name="postal_code" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="addr-street">Улица <span class="required">*</span></label>
+                                            <input type="text" id="addr-street" name="street" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-house">Дом <span class="required">*</span></label>
+                                            <input type="text" id="addr-house" name="house" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="addr-apartment">Квартира</label>
+                                            <input type="text" id="addr-apartment" name="apartment" class="form-control">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-entrance">Подъезд</label>
+                                            <input type="text" id="addr-entrance" name="entrance" class="form-control">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-floor">Этаж</label>
+                                            <input type="text" id="addr-floor" name="floor" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="addr-recipient-name">Имя получателя <span class="required">*</span></label>
+                                            <input type="text" id="addr-recipient-name" name="recipient_name" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="addr-recipient-phone">Телефон получателя <span class="required">*</span></label>
+                                            <input type="tel" id="addr-recipient-phone" name="recipient_phone" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>
+                                            <input type="checkbox" id="addr-is-default" name="is_default">
+                                            Сделать адресом по умолчанию
+                                        </label>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Добавить адрес</button>
+                                        <button type="button" id="cancel-add-address-btn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                    <div id="address-create-error" style="display: none; color: #d32f2f; margin-top: 15px;"></div>
+                                    <div id="address-create-success" style="display: none; color: #155724; margin-top: 15px;"></div>
+                                </form>
+                            </div>
+                            
+                            <!-- Форма редактирования адреса -->
+                            <div id="edit-address-form" style="display: none; margin-bottom: 30px;">
+                                <form id="update-address-form" class="address-form">
+                                    <h3>Редактирование адреса</h3>
+                                    <input type="hidden" id="edit-addr-id" name="address_id">
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="edit-addr-country">Страна <span class="required">*</span></label>
+                                            <select id="edit-addr-country" name="country" class="form-control" required>
+                                                <option value="">Выберите страну</option>
+                                            </select>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-region">Область/Регион</label>
+                                            <input type="text" id="edit-addr-region" name="region" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="edit-addr-city">Город <span class="required">*</span></label>
+                                            <input type="text" id="edit-addr-city" name="city" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-postal">Индекс</label>
+                                            <input type="text" id="edit-addr-postal" name="postal_code" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="edit-addr-street">Улица <span class="required">*</span></label>
+                                            <input type="text" id="edit-addr-street" name="street" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-house">Дом <span class="required">*</span></label>
+                                            <input type="text" id="edit-addr-house" name="house" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="edit-addr-apartment">Квартира</label>
+                                            <input type="text" id="edit-addr-apartment" name="apartment" class="form-control">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-entrance">Подъезд</label>
+                                            <input type="text" id="edit-addr-entrance" name="entrance" class="form-control">
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-floor">Этаж</label>
+                                            <input type="text" id="edit-addr-floor" name="floor" class="form-control">
+                                        </div>
+                                    </div>
+                                    <div class="form-row">
+                                        <div class="form-group">
+                                            <label for="edit-addr-recipient-name">Имя получателя <span class="required">*</span></label>
+                                            <input type="text" id="edit-addr-recipient-name" name="recipient_name" class="form-control" required>
+                                        </div>
+                                        <div class="form-group">
+                                            <label for="edit-addr-recipient-phone">Телефон получателя <span class="required">*</span></label>
+                                            <input type="tel" id="edit-addr-recipient-phone" name="recipient_phone" class="form-control" required>
+                                        </div>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>
+                                            <input type="checkbox" id="edit-addr-is-default" name="is_default">
+                                            Сделать адресом по умолчанию
+                                        </label>
+                                    </div>
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                                        <button type="button" id="cancel-edit-address-btn" class="btn btn-secondary">Отмена</button>
+                                    </div>
+                                    <div id="address-update-error" style="display: none; color: #d32f2f; margin-top: 15px;"></div>
+                                    <div id="address-update-success" style="display: none; color: #155724; margin-top: 15px;"></div>
+                                </form>
+                            </div>
+                            
+                            <div id="addresses-empty" style="display: none; text-align: center; padding: 40px;">
+                                <p style="font-size: 18px; color: #666;">У вас нет сохраненных адресов</p>
+                                <p style="color: #999; margin-top: 10px;">Добавьте адрес для удобной доставки</p>
+                            </div>
+                            <div id="addresses-list"></div>
+                        </div>
+                        <div id="addresses-error" style="display: none; text-align: center; padding: 20px; color: #d32f2f;">
+                            <p>Ошибка загрузки адресов</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', path='js/error_handler.js') }}"></script>
+    <script src="{{ url_for('static', path='js/account.js') }}"></script>
+</body>
+</html>
+

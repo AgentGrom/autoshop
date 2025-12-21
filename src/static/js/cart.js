@@ -44,6 +44,9 @@ async function loadCart() {
             container.style.display = 'block';
             renderCartItems(data.items);
             updateCartSummary(data);
+            
+            // Проверяем статус аккаунта для блокировки кнопки оформления заказа
+            await checkAccountStatus();
         }
     } catch (err) {
         console.error('Ошибка загрузки корзины:', err);
@@ -354,10 +357,77 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const checkoutBtn = document.getElementById('checkout-btn');
     if (checkoutBtn) {
-        checkoutBtn.addEventListener('click', () => {
+        checkoutBtn.addEventListener('click', async () => {
+            // Проверяем статус аккаунта перед переходом
+            const isActive = await checkAccountStatus();
+            if (!isActive) {
+                return; // Кнопка заблокирована, переход не выполняется
+            }
             // Переходим на страницу оформления заказа
             window.location.href = '/orders/parts';
         });
     }
 });
+
+// Проверка статуса аккаунта
+async function checkAccountStatus() {
+    try {
+        const response = await fetch('/account/api/profile', {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            return false;
+        }
+        
+        const profile = await response.json();
+        const checkoutBtn = document.getElementById('checkout-btn');
+        const cartSummary = document.querySelector('.cart-summary');
+        
+        // Проверяем, что статус не "Активный"
+        if (profile.status !== 'Активный') {
+            if (checkoutBtn) {
+                checkoutBtn.disabled = true;
+                checkoutBtn.style.opacity = '0.6';
+                checkoutBtn.style.cursor = 'not-allowed';
+                checkoutBtn.title = 'Для оформления заказа необходимо активировать аккаунт';
+            }
+            
+            // Добавляем предупреждение
+            let warningDiv = document.getElementById('account-status-warning');
+            if (!warningDiv && cartSummary) {
+                warningDiv = document.createElement('div');
+                warningDiv.id = 'account-status-warning';
+                warningDiv.style.cssText = 'background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 12px; margin-top: 15px; color: #856404; font-size: 14px;';
+                warningDiv.innerHTML = `
+                    <strong>⚠️ Аккаунт не активирован</strong><br>
+                    Для оформления заказа необходимо подтвердить ваш email. 
+                    <a href="/account" style="color: #856404; text-decoration: underline;">Перейти в личный кабинет</a>
+                `;
+                cartSummary.appendChild(warningDiv);
+            }
+            
+            return false;
+        } else {
+            // Статус активный - разблокируем кнопку
+            if (checkoutBtn) {
+                checkoutBtn.disabled = false;
+                checkoutBtn.style.opacity = '1';
+                checkoutBtn.style.cursor = 'pointer';
+                checkoutBtn.title = '';
+            }
+            
+            // Удаляем предупреждение, если есть
+            const warningDiv = document.getElementById('account-status-warning');
+            if (warningDiv) {
+                warningDiv.remove();
+            }
+            
+            return true;
+        }
+    } catch (err) {
+        console.error('Ошибка проверки статуса аккаунта:', err);
+        return false;
+    }
+}
 

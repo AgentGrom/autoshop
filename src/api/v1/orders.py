@@ -6,7 +6,7 @@ from typing import Optional
 
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
-from src.database.models import User, Order, CarOrder, OrderItem, PaymentMethodEnum, UserAddress, AddressTypeEnum
+from src.database.models import User, Order, CarOrder, OrderItem, PaymentMethodEnum, UserAddress, AddressTypeEnum, UserStatusEnum
 from src.repositories.car_repo import get_car_by_id
 from src.repositories.pickup_repo import get_pickup_point_by_id
 from src.repositories.settings_repo import get_setting_float
@@ -28,9 +28,26 @@ class CreateCarOrderRequest(BaseModel):
 async def car_order_page(
     request: Request,
     car_id: int,
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user_from_cookie)
 ):
     """Страница оформления заказа автомобиля"""
+    # Проверяем статус аккаунта
+    if current_user.status != UserStatusEnum.ACTIVE.value:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Доступ запрещен",
+                "error_code": 403,
+                "error_message": "Аккаунт не активирован",
+                "error_description": "Для оформления заказа необходимо активировать аккаунт. Пожалуйста, подтвердите ваш email в личном кабинете.",
+                "action_url": "/account",
+                "action_text": "Перейти в личный кабинет"
+            },
+            status_code=403
+        )
+    
     car = await get_car_by_id(session, car_id)
     if not car:
         raise HTTPException(status_code=404, detail="Автомобиль не найден")
@@ -53,6 +70,13 @@ async def create_car_order(
     current_user: User = Depends(get_current_user_from_cookie)
 ):
     """Создание заказа автомобиля"""
+    # Проверяем статус аккаунта
+    if current_user.status != UserStatusEnum.ACTIVE.value:
+        raise HTTPException(
+            status_code=403,
+            detail="Для оформления заказа необходимо активировать аккаунт. Пожалуйста, подтвердите ваш email в личном кабинете."
+        )
+    
     # Проверяем автомобиль
     car = await get_car_by_id(session, order_data.car_id)
     if not car:
@@ -142,6 +166,22 @@ async def parts_order_page(
     current_user: User = Depends(get_current_user_from_cookie)
 ):
     """Страница оформления заказа запчастей"""
+    # Проверяем статус аккаунта
+    if current_user.status != UserStatusEnum.ACTIVE.value:
+        return templates.TemplateResponse(
+            "error.html",
+            {
+                "request": request,
+                "title": "Доступ запрещен",
+                "error_code": 403,
+                "error_message": "Аккаунт не активирован",
+                "error_description": "Для оформления заказа необходимо активировать аккаунт. Пожалуйста, подтвердите ваш email в личном кабинете.",
+                "action_url": "/account",
+                "action_text": "Перейти в личный кабинет"
+            },
+            status_code=403
+        )
+    
     # Проверяем, что в корзине есть товары
     cart_items = await get_cart_items(session, current_user.user_id)
     if not cart_items:
@@ -164,6 +204,13 @@ async def create_part_order(
     current_user: User = Depends(get_current_user_from_cookie)
 ):
     """Создание заказа запчастей"""
+    # Проверяем статус аккаунта
+    if current_user.status != UserStatusEnum.ACTIVE.value:
+        raise HTTPException(
+            status_code=403,
+            detail="Для оформления заказа необходимо активировать аккаунт. Пожалуйста, подтвердите ваш email в личном кабинете."
+        )
+    
     # Проверяем способ доставки
     if order_data.delivery_method not in ["home", "pickup"]:
         raise HTTPException(status_code=400, detail="Неверный способ доставки")
@@ -185,7 +232,7 @@ async def create_part_order(
             # Создаем новый адрес
             new_address = UserAddress(
                 user_id=current_user.user_id,
-                address_type=AddressTypeEnum.EXACT,
+                address_type=AddressTypeEnum.EXACT.value,
                 country=order_data.address_data.country,
                 region=order_data.address_data.region,
                 city=order_data.address_data.city,
