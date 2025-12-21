@@ -195,13 +195,28 @@ async def search_cars(
     """
     Поиск по тексту — возвращает объекты Car.
     """
+    from src.database.models import CarOrder, Order, OrderStatusEnum
+    
+    # Исключаем автомобили, которые уже заказаны
+    ordered_car_ids_subquery = (
+        select(CarOrder.car_id)
+        .join(Order, CarOrder.order_id == Order.order_id)
+        .where(Order.status != OrderStatusEnum.CANCELLED.value)
+    )
+    
     car_ids = await get_car_ids_by_search(session, query, limit=200)
     if not car_ids:
-        # Если нет — возвращаем первые авто
-        stmt = select(Car)
+        # Если нет — возвращаем первые авто (исключая заказанные)
+        stmt = select(Car).where(~Car.car_id.in_(ordered_car_ids_subquery))
         return await apply_filters_and_execute(session, stmt, [], limit, offset)
 
-    stmt = select(Car).where(Car.car_id.in_(car_ids))
+    stmt = (
+        select(Car)
+        .where(
+            Car.car_id.in_(car_ids),
+            ~Car.car_id.in_(ordered_car_ids_subquery)
+        )
+    )
     return await apply_filters_and_execute(session, stmt, [], limit, offset)
 
 
@@ -254,7 +269,20 @@ async def filter_cars(
         fuel_types=fuel_types
     )
 
-    stmt = select(Car).join(Car.trim)
+    from src.database.models import CarOrder, Order, OrderStatusEnum
+    
+    # Исключаем автомобили, которые уже заказаны
+    ordered_car_ids_subquery = (
+        select(CarOrder.car_id)
+        .join(Order, CarOrder.order_id == Order.order_id)
+        .where(Order.status != OrderStatusEnum.CANCELLED.value)
+    )
+    
+    stmt = (
+        select(Car)
+        .join(Car.trim)
+        .where(~Car.car_id.in_(ordered_car_ids_subquery))
+    )
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 
 
@@ -309,13 +337,34 @@ async def search_and_filter_cars(
         fuel_types=fuel_types
     )
 
+    from src.database.models import CarOrder, Order, OrderStatusEnum
+    
+    # Исключаем автомобили, которые уже заказаны (имеют активные заказы, не отмененные)
+    # Подзапрос для получения car_id автомобилей с активными заказами
+    ordered_car_ids_subquery = (
+        select(CarOrder.car_id)
+        .join(Order, CarOrder.order_id == Order.order_id)
+        .where(Order.status != OrderStatusEnum.CANCELLED.value)
+    )
+    
     if query and query.strip():
         car_ids = await get_car_ids_by_search(session, query)
         if not car_ids:
             return []
-        stmt = select(Car).join(Car.trim).where(Car.car_id.in_(car_ids))
+        stmt = (
+            select(Car)
+            .join(Car.trim)
+            .where(
+                Car.car_id.in_(car_ids),
+                ~Car.car_id.in_(ordered_car_ids_subquery)  # Исключаем автомобили с активными заказами
+            )
+        )
     else:
-        stmt = select(Car).join(Car.trim)
+        stmt = (
+            select(Car)
+            .join(Car.trim)
+            .where(~Car.car_id.in_(ordered_car_ids_subquery))  # Исключаем автомобили с активными заказами
+        )
 
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 

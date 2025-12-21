@@ -31,7 +31,31 @@ async def get_cart_item(session: AsyncSession, user_id: int, part_id: int) -> Op
 
 async def add_to_cart(session: AsyncSession, user_id: int, part_id: int, quantity: int = 1) -> CartItem:
     """Добавляет товар в корзину или увеличивает количество, если уже есть"""
+    from src.database.models import Part
+    from sqlalchemy import select
+    
+    # Получаем информацию о товаре и проверяем наличие на складе
+    part_stmt = select(Part).where(Part.part_id == part_id)
+    part_result = await session.execute(part_stmt)
+    part = part_result.scalar_one_or_none()
+    
+    if not part:
+        raise ValueError(f"Товар с ID {part_id} не найден")
+    
+    # Получаем текущее количество в корзине
     existing_item = await get_cart_item(session, user_id, part_id)
+    current_cart_quantity = existing_item.quantity if existing_item else 0
+    
+    # Проверяем, что после добавления не превысим количество на складе
+    stock_count = part.stock_count or 0
+    total_quantity = current_cart_quantity + quantity
+    
+    if total_quantity > stock_count:
+        available = stock_count - current_cart_quantity
+        if available <= 0:
+            raise ValueError(f"Товар отсутствует на складе. В наличии: {stock_count} шт., в корзине: {current_cart_quantity} шт.")
+        else:
+            raise ValueError(f"Недостаточно товара на складе. Доступно для добавления: {available} шт. (в наличии: {stock_count} шт., в корзине: {current_cart_quantity} шт.)")
     
     if existing_item:
         # Увеличиваем количество
@@ -56,6 +80,19 @@ async def add_to_cart(session: AsyncSession, user_id: int, part_id: int, quantit
         await session.rollback()
         existing_item = await get_cart_item(session, user_id, part_id)
         if existing_item:
+            # Повторно проверяем наличие перед обновлением
+            part_result = await session.execute(part_stmt)
+            part = part_result.scalar_one_or_none()
+            if part:
+                stock_count = part.stock_count or 0
+                total_quantity = existing_item.quantity + quantity
+                if total_quantity > stock_count:
+                    available = stock_count - existing_item.quantity
+                    if available <= 0:
+                        raise ValueError(f"Товар отсутствует на складе. В наличии: {stock_count} шт., в корзине: {existing_item.quantity} шт.")
+                    else:
+                        raise ValueError(f"Недостаточно товара на складе. Доступно для добавления: {available} шт. (в наличии: {stock_count} шт., в корзине: {existing_item.quantity} шт.)")
+            
             existing_item.quantity += quantity
             await session.commit()
             await session.refresh(existing_item)

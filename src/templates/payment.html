@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Оплата заказа — AutoShop</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}">
+</head>
+<body>
+    <!-- Верхняя навигация -->
+    <div class="top-nav">
+        <div class="container">
+            <div class="nav-container">
+                <div class="nav-left">
+                    <div class="logo">AutoShop</div>
+                    <a href="/">Главная</a>
+                    <a href="/cars">Автомобили</a>
+                    <a href="/parts">Запчасти</a>
+                    <a href="/about">О нас</a>
+                    <a href="/contacts">Контакты</a>
+                </div>
+                <div class="nav-right">
+                    <!-- Навигация будет обновлена динамически через auth.js -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Основной контент -->
+    <div class="main-content-wrapper">
+        <div class="container">
+            <div class="payment-container">
+                <div class="block-header">
+                    <h2>💳 Оплата заказа</h2>
+                </div>
+                
+                <div class="block-content">
+                    <div id="payment-loader" class="loader" style="display: flex; justify-content: center; align-items: center; padding: 40px;">
+                        <div class="spinner"></div>
+                        <p style="margin-left: 10px;">Загрузка данных заказа...</p>
+                    </div>
+                    
+                    <div id="payment-content" style="display: none;">
+                        <div class="payment-info">
+                            <div class="payment-order-info">
+                                <h3>Заказ №<span id="payment-order-id"></span></h3>
+                                <p class="payment-amount">Сумма к оплате: <strong id="payment-total-amount">0</strong> ₽</p>
+                            </div>
+                            
+                            <div class="payment-methods">
+                                <h4>Выберите способ оплаты:</h4>
+                                <div class="payment-method-options">
+                                    <label class="payment-method-option">
+                                        <input type="radio" name="payment_method" value="card" checked>
+                                        <span>Банковская карта</span>
+                                    </label>
+                                    <label class="payment-method-option">
+                                        <input type="radio" name="payment_method" value="sbp">
+                                        <span>СБП (Система быстрых платежей)</span>
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <div class="payment-actions">
+                                <button id="pay-btn" class="btn btn-primary btn-large">Оплатить</button>
+                                <button id="cancel-btn" class="btn btn-secondary btn-large">Отменить</button>
+                            </div>
+                            
+                            <div id="payment-error" style="display: none; color: #d32f2f; margin-top: 20px; text-align: center;"></div>
+                        </div>
+                    </div>
+                    
+                    <div id="payment-error-page" style="display: none; text-align: center; padding: 40px;">
+                        <p style="font-size: 18px; color: #d32f2f; margin-bottom: 20px;">Ошибка загрузки заказа</p>
+                        <a href="/account" class="btn btn-primary">Вернуться в личный кабинет</a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Подвал -->
+    <div class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>AutoShop</h4>
+                    <a href="/about">О компании</a>
+                    <a href="/vacancies">Вакансии</a>
+                    <a href="/docs">API для разработчиков</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Помощь</h4>
+                    <a href="/delivery">Доставка</a>
+                    <a href="/payment">Оплата</a>
+                    <a href="/guarantee">Гарантия</a>
+                    <a href="/returns">Возврат</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Контакты</h4>
+                    <a href="tel:+79991234567">+7 (999) 123-45-67</a>
+                    <a href="mailto:info@autoshop.ru">info@autoshop.ru</a>
+                    <a href="/contacts">Москва, ул. Автозапчастей, 1</a>
+                </div>
+                <div class="footer-section">
+                    <h4>Документы</h4>
+                    <a href="/privacy">Политика конфиденциальности</a>
+                    <a href="/terms">Пользовательское соглашение</a>
+                </div>
+            </div>
+            <div class="copyright">
+                <p>© 2025 AutoShop. Интернет-магазин автомобилей и запчастей</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', path='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', path='js/error_handler.js') }}"></script>
+    <script src="{{ url_for('static', path='js/payment.js') }}"></script>
+</body>
+</html>
+

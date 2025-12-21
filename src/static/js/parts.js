@@ -410,15 +410,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // кнопка "в корзину"
         const addBtn = card.querySelector('.add-to-cart-btn');
-        addBtn?.addEventListener('click', () => {
-            addToCart(part.part_id);
+        addBtn?.addEventListener('click', async () => {
             const oldText = addBtn.textContent;
-            addBtn.textContent = 'Добавлено';
             addBtn.disabled = true;
-            setTimeout(() => {
+            addBtn.textContent = 'Добавление...';
+            
+            try {
+                const success = await addToCart(part.part_id);
+                if (success) {
+                    addBtn.textContent = 'Добавлено';
+                    setTimeout(() => {
+                        addBtn.textContent = oldText;
+                        addBtn.disabled = false;
+                    }, 800);
+                } else {
+                    addBtn.textContent = oldText;
+                    addBtn.disabled = false;
+                }
+            } catch (err) {
                 addBtn.textContent = oldText;
                 addBtn.disabled = false;
-            }, 800);
+            }
         });
 
         initializeCarousels(card);

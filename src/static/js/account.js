@@ -64,9 +64,41 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     });
 
-    // Загружаем данные для активного раздела (профиль)
+    // Проверяем hash в URL для переключения на нужную вкладку
+    const hash = window.location.hash;
+    let initialSection = 'profile';
+    
+    if (hash === '#orders') {
+        initialSection = 'orders';
+        // Переключаем на вкладку заказов
+        const ordersTab = document.querySelector('.account-tab[data-tab="orders"]');
+        if (ordersTab) {
+            tabs.forEach(t => t.classList.remove('active'));
+            sections.forEach(s => s.classList.remove('active'));
+            ordersTab.classList.add('active');
+            const ordersSection = document.getElementById('orders-section');
+            if (ordersSection) {
+                ordersSection.classList.add('active');
+            }
+        }
+    } else if (hash === '#addresses') {
+        initialSection = 'addresses';
+        // Переключаем на вкладку адресов
+        const addressesTab = document.querySelector('.account-tab[data-tab="addresses"]');
+        if (addressesTab) {
+            tabs.forEach(t => t.classList.remove('active'));
+            sections.forEach(s => s.classList.remove('active'));
+            addressesTab.classList.add('active');
+            const addressesSection = document.getElementById('addresses-section');
+            if (addressesSection) {
+                addressesSection.classList.add('active');
+            }
+        }
+    }
+    
+    // Загружаем данные для активного раздела
     try {
-        await loadSectionData('profile');
+        await loadSectionData(initialSection);
     } catch (err) {
         console.error('Error loading initial section:', err);
     }
@@ -367,10 +399,14 @@ async function loadOrders() {
 function renderOrder(order) {
     const statusMap = {
         'PROCESSING': { text: 'В обработке', class: 'status-processing' },
+        'В обработке': { text: 'В обработке', class: 'status-processing' },
         'CONFIRMED': { text: 'Подтвержден', class: 'status-confirmed' },
         'SHIPPED': { text: 'Отправлен', class: 'status-shipped' },
+        'Отправлен': { text: 'Отправлен', class: 'status-shipped' },
         'DELIVERED': { text: 'Доставлен', class: 'status-delivered' },
-        'CANCELLED': { text: 'Отменен', class: 'status-cancelled' }
+        'Доставлен': { text: 'Доставлен', class: 'status-delivered' },
+        'CANCELLED': { text: 'Отменен', class: 'status-cancelled' },
+        'Отменен': { text: 'Отменен', class: 'status-cancelled' }
     };
     
     const statusInfo = statusMap[order.status] || { text: order.status, class: 'status-default' };
@@ -395,7 +431,7 @@ function renderOrder(order) {
     if (order.order_items && order.order_items.length > 0) {
         itemsHtml += '<div class="order-items-group"><h4>Запчасти:</h4><ul class="order-items-list">';
         order.order_items.forEach(item => {
-            const imageUrl = item.image ? `/static/${item.image}` : '/static/images/placeholder.png';
+            const imageUrl = item.image || '/static/images/parts/base.png';
             itemsHtml += `
                 <li class="order-item">
                     <img src="${imageUrl}" alt="${item.part_name}" class="order-item-image">
@@ -414,7 +450,7 @@ function renderOrder(order) {
     if (order.car_orders && order.car_orders.length > 0) {
         itemsHtml += '<div class="order-items-group"><h4>Автомобили:</h4><ul class="order-items-list">';
         order.car_orders.forEach(car => {
-            const imageUrl = car.image ? `/static/${car.image}` : '/static/images/placeholder.png';
+            const imageUrl = car.image || '/static/images/cars/base.jpeg';
             itemsHtml += `
                 <li class="order-item">
                     <img src="${imageUrl}" alt="${car.brand} ${car.model}" class="order-item-image">
@@ -453,6 +489,14 @@ function renderOrder(order) {
                 </div>
                 <div class="order-total">
                     <strong>Итого:</strong> ${order.total_amount.toLocaleString('ru-RU')} ₽
+                </div>
+                <div class="order-actions" style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                    ${!order.is_paid && order.status !== 'Отменен' && order.status !== 'CANCELLED' ? `
+                        <button class="btn btn-primary btn-sm" onclick="payOrder(${order.order_id})">Оплатить заказ</button>
+                    ` : ''}
+                    ${order.status !== 'Отменен' && order.status !== 'CANCELLED' && order.status !== 'Доставлен' && order.status !== 'DELIVERED' ? `
+                        <button class="btn btn-secondary btn-sm" onclick="cancelOrder(${order.order_id})">Отменить заказ</button>
+                    ` : ''}
                 </div>
             </div>
         </div>
@@ -934,4 +978,45 @@ function updateVerificationBanner(profileData) {
         banner.style.display = 'none';
     }
 }
+
+// Оплата заказа
+async function payOrder(orderId) {
+    if (!confirm('Перейти к оплате заказа?')) {
+        return;
+    }
+    
+    window.location.href = `/orders/payment?order_id=${orderId}`;
+}
+
+// Отмена заказа
+async function cancelOrder(orderId) {
+    if (!confirm('Вы уверены, что хотите отменить заказ? Это действие нельзя отменить.')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/orders/api/cancel/${orderId}`, {
+            method: 'POST',
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage);
+        }
+        
+        const result = await response.json();
+        alert(result.message || 'Заказ успешно отменен');
+        
+        // Перезагружаем список заказов
+        await loadOrders();
+    } catch (err) {
+        console.error('Ошибка отмены заказа:', err);
+        await showError(err, 'Ошибка отмены заказа');
+    }
+}
+
+// Экспортируем функции для использования в HTML
+window.payOrder = payOrder;
+window.cancelOrder = cancelOrder;
 

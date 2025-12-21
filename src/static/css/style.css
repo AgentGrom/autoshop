@@ -2456,13 +2456,25 @@ textarea.form-control {
 
 .order-footer {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column;
     padding: 20px;
     background: #f8f9fa;
     border-top: 1px solid #e0e0e0;
+    gap: 15px;
+}
+
+.order-footer > div:first-child {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     flex-wrap: wrap;
     gap: 15px;
+}
+
+.order-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
 }
 
 .order-payment {
@@ -2835,6 +2847,115 @@ textarea.form-control {
     }
     
     .verification-actions .btn {
+        width: 100%;
+    }
+}
+
+/* Страница оплаты */
+.payment-container {
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.payment-info {
+    background: white;
+    padding: 30px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.payment-order-info {
+    margin-bottom: 30px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.payment-order-info h3 {
+    font-size: 24px;
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.payment-amount {
+    font-size: 20px;
+    color: #666;
+}
+
+.payment-amount strong {
+    font-size: 28px;
+    color: #1976d2;
+}
+
+.payment-methods {
+    margin-bottom: 30px;
+}
+
+.payment-methods h4 {
+    font-size: 18px;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.payment-method-options {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.payment-method-option {
+    display: flex;
+    align-items: center;
+    padding: 15px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.payment-method-option:hover {
+    border-color: #1976d2;
+    background: #f5f5f5;
+}
+
+.payment-method-option input[type="radio"] {
+    margin-right: 12px;
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.payment-method-option input[type="radio"]:checked + span {
+    font-weight: 600;
+    color: #1976d2;
+}
+
+.payment-method-option:has(input[type="radio"]:checked) {
+    border-color: #1976d2;
+    background: #e3f2fd;
+}
+
+.payment-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+}
+
+.payment-actions .btn {
+    flex: 1;
+}
+
+.btn-large {
+    padding: 15px 30px;
+    font-size: 16px;
+}
+
+@media (max-width: 768px) {
+    .payment-actions {
+        flex-direction: column;
+    }
+    
+    .payment-actions .btn {
         width: 100%;
     }
 }

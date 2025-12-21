@@ -17,6 +17,186 @@ router = APIRouter(prefix="/orders", tags=["orders"])
 templates = Jinja2Templates(directory="src/templates")
 
 
+@router.get("/payment")
+async def payment_page(
+    request: Request,
+    order_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Страница оплаты заказа"""
+    # Проверяем, что заказ существует и принадлежит пользователю
+    from sqlalchemy import select
+    stmt = select(Order).where(Order.order_id == order_id, Order.user_id == current_user.user_id)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    if order.is_paid:
+        # Заказ уже оплачен, перенаправляем в личный кабинет
+        from fastapi.responses import RedirectResponse
+        return RedirectResponse(url="/account", status_code=303)
+    
+    return templates.TemplateResponse(
+        "payment.html",
+        {
+            "request": request,
+            "title": "Оплата заказа",
+            "order_id": order_id
+        }
+    )
+
+
+@router.get("/api/order/{order_id}")
+async def get_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить информацию о заказе"""
+    from sqlalchemy import select
+    from sqlalchemy.orm import selectinload
+    
+    stmt = (
+        select(Order)
+        .where(Order.order_id == order_id, Order.user_id == current_user.user_id)
+        .options(
+            selectinload(Order.order_items).selectinload(OrderItem.part),
+            selectinload(Order.car_orders).selectinload(CarOrder.car)
+        )
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # Рассчитываем общую сумму
+    items_total = sum(float(item.part.price) * item.quantity for item in order.order_items if item.part.price)
+    cars_total = sum(float(co.car_price) for co in order.car_orders if co.car_price)
+    total_amount = items_total + cars_total + float(order.service_fee or 0) + float(order.shipping_cost or 0) - float(order.discount or 0)
+    
+    return {
+        "order_id": order.order_id,
+        "total_amount": total_amount,
+        "is_paid": order.is_paid,
+        "payment_method": order.payment_method.value if hasattr(order.payment_method, 'value') else str(order.payment_method),
+        "status": order.status.value if hasattr(order.status, 'value') else str(order.status)
+    }
+
+
+class PayOrderRequest(BaseModel):
+    pay: bool  # True - оплатить, False - отменить
+
+
+@router.post("/api/pay/{order_id}")
+async def pay_order(
+    order_id: int,
+    pay_data: PayOrderRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Оплатить или отменить оплату заказа"""
+    from sqlalchemy import select, update
+    from src.database.models import OrderStatusEnum
+    
+    # Проверяем, что заказ существует и принадлежит пользователю
+    stmt = select(Order).where(Order.order_id == order_id, Order.user_id == current_user.user_id)
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    if order.is_paid and pay_data.pay:
+        raise HTTPException(status_code=400, detail="Заказ уже оплачен")
+    
+    # Обновляем статус оплаты
+    if pay_data.pay:
+        # Оплачиваем заказ
+        await session.execute(
+            update(Order)
+            .where(Order.order_id == order_id)
+            .values(is_paid=True)
+        )
+        await session.commit()
+        return {
+            "success": True,
+            "message": "Заказ успешно оплачен"
+        }
+    else:
+        # Отменяем оплату (заказ остается неоплаченным)
+        # Заказ уже создан с is_paid=False, просто подтверждаем
+        await session.commit()
+        return {
+            "success": True,
+            "message": "Оплата отменена. Заказ создан, но не оплачен."
+        }
+
+
+@router.post("/api/cancel/{order_id}")
+async def cancel_order(
+    order_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Отменить заказ"""
+    from sqlalchemy import select, update, delete
+    from sqlalchemy.orm import selectinload
+    from src.database.models import OrderStatusEnum
+    
+    # Проверяем, что заказ существует и принадлежит пользователю
+    stmt = (
+        select(Order)
+        .where(Order.order_id == order_id, Order.user_id == current_user.user_id)
+        .options(selectinload(Order.order_items))
+    )
+    result = await session.execute(stmt)
+    order = result.scalar_one_or_none()
+    
+    if not order:
+        raise HTTPException(status_code=404, detail="Заказ не найден")
+    
+    # Проверяем, можно ли отменить заказ (нельзя отменить уже доставленный или уже отмененный)
+    if order.status == OrderStatusEnum.DELIVERED.value:
+        raise HTTPException(status_code=400, detail="Нельзя отменить доставленный заказ")
+    
+    if order.status == OrderStatusEnum.CANCELLED.value:
+        raise HTTPException(status_code=400, detail="Заказ уже отменен")
+    
+    # Возвращаем товары на склад (вручную обновляем stock_count, не удаляя order_items для истории)
+    if order.order_items:
+        from src.database.models import Part
+        for item in order.order_items:
+            # Получаем текущее количество на складе
+            part_stmt = select(Part).where(Part.part_id == item.part_id)
+            part_result = await session.execute(part_stmt)
+            part = part_result.scalar_one_or_none()
+            if part:
+                # Увеличиваем количество на складе на количество из отмененного заказа
+                new_stock = (part.stock_count or 0) + item.quantity
+                await session.execute(
+                    update(Part)
+                    .where(Part.part_id == item.part_id)
+                    .values(stock_count=new_stock)
+                )
+    
+    # Отменяем заказ (order_items остаются для истории заказа)
+    await session.execute(
+        update(Order)
+        .where(Order.order_id == order_id)
+        .values(status=OrderStatusEnum.CANCELLED.value)
+    )
+    await session.commit()
+    
+    return {
+        "success": True,
+        "message": "Заказ успешно отменен. Товары возвращены на склад."
+    }
+
+
 class CreateCarOrderRequest(BaseModel):
     car_id: int
     pickup_point_id: int
@@ -85,6 +265,23 @@ async def create_car_order(
     if not car.price:
         raise HTTPException(status_code=400, detail="Автомобиль не доступен для заказа (нет цены)")
     
+    # Проверяем, что автомобиль еще не заказан (не в активных заказах)
+    from sqlalchemy import select
+    from src.database.models import OrderStatusEnum
+    existing_car_order = await session.execute(
+        select(CarOrder)
+        .join(Order)
+        .where(
+            CarOrder.car_id == order_data.car_id,
+            Order.status != OrderStatusEnum.CANCELLED.value
+        )
+    )
+    if existing_car_order.scalar_one_or_none():
+        raise HTTPException(
+            status_code=400,
+            detail="Этот автомобиль уже заказан и недоступен для повторного заказа"
+        )
+    
     # Проверяем пункт выдачи
     pickup_point = await get_pickup_point_by_id(session, order_data.pickup_point_id)
     if not pickup_point:
@@ -107,14 +304,22 @@ async def create_car_order(
     car_price = float(car.price)
     total_amount = car_price + car_service_fee + car_delivery_cost
     
-    # Создаём заказ
+    # Определяем, нужно ли перебрасывать на оплату
+    # payment_method уже является PaymentMethodEnum после парсинга
+    is_online_payment = (payment_method == PaymentMethodEnum.CARD)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Car order: payment_method={payment_method}, PaymentMethodEnum.CARD={PaymentMethodEnum.CARD}, is_online_payment={is_online_payment}")
+    
+    # Создаём заказ (всегда с is_paid=False, оплата происходит отдельно)
     order = Order(
         user_id=current_user.user_id,
         pickup_point_id=pickup_point.pickup_point_id,
-        payment_method=payment_method,
+        payment_method=payment_method.value,  # Используем .value для получения строки
         shipping_cost=car_delivery_cost,
         service_fee=car_service_fee,
-        customer_notes=order_data.customer_notes
+        customer_notes=order_data.customer_notes,
+        is_paid=False  # Всегда создаем неоплаченным, оплата происходит отдельно
     )
     session.add(order)
     await session.flush()  # Получаем order_id
@@ -130,6 +335,17 @@ async def create_car_order(
     await session.commit()
     await session.refresh(order)
     
+    # Если онлайн-оплата, перебрасываем на страницу оплаты
+    if is_online_payment:
+        return {
+            "success": True,
+            "order_id": order.order_id,
+            "message": "Заказ создан, требуется оплата",
+            "total_amount": total_amount,
+            "redirect_to_payment": True
+        }
+    
+    # Для наличных и карты при получении - заказ создан, оплата при получении
     return {
         "success": True,
         "order_id": order.order_id,
@@ -275,19 +491,27 @@ async def create_part_order(
     part_service_fee = await get_setting_float(session, "part_service_fee", 500.0)
     part_delivery_cost = await get_setting_float(session, "part_delivery_cost", 500.0) if order_data.delivery_method == "home" else 0.0
     
+    # Определяем, нужно ли перебрасывать на оплату
+    # payment_method уже является PaymentMethodEnum после парсинга
+    is_online_payment = (payment_method == PaymentMethodEnum.CARD)
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info(f"Part order: payment_method={payment_method}, PaymentMethodEnum.CARD={PaymentMethodEnum.CARD}, is_online_payment={is_online_payment}")
+    
     # Рассчитываем сумму товаров
     items_total = sum(float(item.part.price) * item.quantity for item in cart_items if item.part.price)
     total_amount = items_total + part_service_fee + part_delivery_cost
     
-    # Создаём заказ
+    # Создаём заказ (всегда с is_paid=False, оплата происходит отдельно)
     order = Order(
         user_id=current_user.user_id,
         shipping_address_id=shipping_address_id,
         pickup_point_id=pickup_point_id,
-        payment_method=payment_method,
+        payment_method=payment_method.value,  # Используем .value для получения строки
         shipping_cost=part_delivery_cost,
         service_fee=part_service_fee,
-        customer_notes=order_data.customer_notes
+        customer_notes=order_data.customer_notes,
+        is_paid=False  # Всегда создаем неоплаченным, оплата происходит отдельно
     )
     session.add(order)
     await session.flush()  # Получаем order_id
@@ -308,6 +532,17 @@ async def create_part_order(
     await session.commit()
     await session.refresh(order)
     
+    # Если онлайн-оплата, перебрасываем на страницу оплаты
+    if is_online_payment:
+        return {
+            "success": True,
+            "order_id": order.order_id,
+            "message": "Заказ создан, требуется оплата",
+            "total_amount": total_amount,
+            "redirect_to_payment": True
+        }
+    
+    # Для наличных и карты при получении - заказ создан, оплата при получении
     return {
         "success": True,
         "order_id": order.order_id,

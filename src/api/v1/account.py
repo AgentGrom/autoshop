@@ -53,16 +53,29 @@ async def get_user_orders(
     session: AsyncSession = Depends(get_async_session)
 ):
     """Получить все заказы пользователя с полной информацией"""
+    from sqlalchemy import case
+    from src.database.models import OrderStatusEnum
+    
+    # Создаем приоритеты для статусов: Отправлен (1) → В обработке (2) → Доставлен (3) → Отменен (4)
+    status_priority = case(
+        (Order.status == OrderStatusEnum.SHIPPED.value, 1),
+        (Order.status == OrderStatusEnum.PROCESSING.value, 2),
+        (Order.status == OrderStatusEnum.DELIVERED.value, 3),
+        (Order.status == OrderStatusEnum.CANCELLED.value, 4),
+        else_=5  # Для неизвестных статусов
+    )
+    
     result = await session.execute(
         select(Order)
         .options(
             selectinload(Order.order_items).selectinload(OrderItem.part).selectinload(Part.images),
             selectinload(Order.car_orders).selectinload(CarOrder.car).selectinload(Car.images),
+            selectinload(Order.car_orders).selectinload(CarOrder.car).selectinload(Car.trim),
             selectinload(Order.pickup_point),
             selectinload(Order.shipping_address)
         )
         .where(Order.user_id == current_user.user_id)
-        .order_by(Order.order_date.desc())
+        .order_by(status_priority.asc(), Order.order_date.desc())
     )
     orders = result.scalars().all()
     
@@ -85,7 +98,7 @@ async def get_user_orders(
                 "quantity": item.quantity,
                 "price": part_price,
                 "total": item_total,
-                "image": item.part.images[0].image_path if item.part.images else None
+                "image": item.part.images[0].url if item.part.images else "/static/images/parts/base.png"
             })
         
         # Сумма за автомобили
@@ -94,13 +107,17 @@ async def get_user_orders(
         for car_order in order.car_orders:
             car_price = float(car_order.car_price)
             cars_total += car_price
+            car = car_order.car
+            brand = car.trim.brand_name.value if hasattr(car.trim.brand_name, 'value') else str(car.trim.brand_name) if car.trim.brand_name else "—"
+            model = car.trim.model_name if car.trim.model_name else "—"
+            year = car.production_year if car.production_year else None
             car_orders_data.append({
                 "car_id": car_order.car_id,
-                "brand": car_order.car.brand.value if hasattr(car_order.car.brand, 'value') else str(car_order.car.brand),
-                "model": car_order.car.model,
-                "year": car_order.car.year,
+                "brand": brand,
+                "model": model,
+                "year": year,
                 "price": car_price,
-                "image": car_order.car.images[0].image_path if car_order.car.images else None
+                "image": car.images[0].url if car.images else "/static/images/cars/base.jpeg"
             })
         
         total_amount += parts_total + cars_total

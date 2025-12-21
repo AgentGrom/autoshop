@@ -39,8 +39,10 @@ async function addToCart(partId, quantity = 1) {
             }
             return false;
         } else {
-            console.error('Ошибка добавления в корзину');
-            alert('Ошибка добавления товара в корзину');
+            // Получаем сообщение об ошибке
+            const errorMessage = await getErrorMessage(response);
+            console.error('Ошибка добавления в корзину:', errorMessage);
+            alert(errorMessage || 'Ошибка добавления товара в корзину');
             return false;
         }
     } catch (err) {

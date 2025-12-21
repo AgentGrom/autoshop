@@ -186,7 +186,8 @@ async function updateQuantity(partId, quantity) {
         });
         
         if (!response.ok) {
-            throw new Error('Ошибка обновления количества');
+            const errorMessage = await getErrorMessage(response);
+            throw new Error(errorMessage || 'Ошибка обновления количества');
         }
         
         // Если количество стало 0, товар был удалён - обновляем корзину
@@ -214,7 +215,8 @@ async function updateQuantity(partId, quantity) {
         priceTotalEl.textContent = `${formatPrice(oldTotal)} ₽`;
         const rollbackDelta = oldQuantity - quantity;
         updateCartSummaryOptimistic(pricePerUnit * rollbackDelta, rollbackDelta);
-        alert('Ошибка обновления количества товара');
+        // Показываем ошибку пользователю
+        await showError(err, 'Ошибка обновления количества товара');
     }
 }
 

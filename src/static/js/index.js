@@ -279,16 +279,33 @@ function createPartCard(part) {
     const btn = partCard.querySelector('[data-add-part]');
     if (btn) {
         btn.addEventListener('click', async () => {
+            const oldText = btn.textContent;
+            btn.disabled = true;
+            btn.textContent = 'Добавление...';
+            
             try {
                 // Используем универсальную функцию из cart_utils.js
                 if (typeof window.addToCart === 'function') {
-                    await window.addToCart(part.part_id, 1);
+                    const success = await window.addToCart(part.part_id, 1);
+                    if (success) {
+                        btn.textContent = 'Добавлено';
+                        setTimeout(() => {
+                            btn.textContent = oldText;
+                            btn.disabled = false;
+                        }, 800);
+                    } else {
+                        btn.textContent = oldText;
+                        btn.disabled = false;
+                    }
                 } else {
                     alert('Для добавления товара в корзину необходимо войти в аккаунт');
+                    btn.textContent = oldText;
+                    btn.disabled = false;
                 }
             } catch (err) {
                 console.error('Ошибка добавления в корзину:', err);
-                alert('Ошибка добавления товара в корзину');
+                btn.textContent = oldText;
+                btn.disabled = false;
             }
         });
     }

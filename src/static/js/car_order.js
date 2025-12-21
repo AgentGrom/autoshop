@@ -496,8 +496,16 @@ async function submitOrder() {
         }
         
         const data = await response.json();
-        alert(`Заказ успешно оформлен! Номер заказа: ${data.order_id}`);
-        window.location.href = '/';
+        
+        // НЕ показываем alert - сразу делаем редирект
+        // Если требуется онлайн-оплата, перебрасываем на страницу оплаты
+        if (data.redirect_to_payment === true || data.redirect_to_payment === 'true' || data.redirect_to_payment) {
+            window.location.replace(`/orders/payment?order_id=${data.order_id}`);
+            return;
+        }
+        
+        // Для других способов оплаты перебрасываем на страницу заказов
+        window.location.replace('/account#orders');
     } catch (err) {
         console.error('Ошибка оформления заказа:', err);
         await showError(err, 'Ошибка оформления заказа');

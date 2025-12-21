@@ -65,8 +65,27 @@ function renderPartDetails() {
     descEl.textContent = partData.description || '';
 
     const addBtn = document.getElementById('add-to-cart-btn');
-    addBtn.addEventListener('click', () => {
-        addToCart(partData.part_id);
+    addBtn.addEventListener('click', async () => {
+        const oldText = addBtn.textContent;
+        addBtn.disabled = true;
+        addBtn.textContent = 'Добавление...';
+        
+        try {
+            const success = await addToCart(partData.part_id);
+            if (success) {
+                addBtn.textContent = 'Добавлено';
+                setTimeout(() => {
+                    addBtn.textContent = oldText;
+                    addBtn.disabled = false;
+                }, 800);
+            } else {
+                addBtn.textContent = oldText;
+                addBtn.disabled = false;
+            }
+        } catch (err) {
+            addBtn.textContent = oldText;
+            addBtn.disabled = false;
+        }
     });
 
     renderSpecifications();
