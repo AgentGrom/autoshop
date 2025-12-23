@@ -1088,6 +1088,12 @@ function initManagementTabs() {
                         initAddCarForm();
                         document.getElementById('add-car-form').dataset.initialized = 'true';
                     }
+                } else if (targetTab === 'add-part') {
+                    // Инициализируем форму, если она еще не инициализирована
+                    if (document.getElementById('add-part-form') && !document.getElementById('add-part-form').dataset.initialized) {
+                        initAddPartForm();
+                        document.getElementById('add-part-form').dataset.initialized = 'true';
+                    }
                 }
             }
         });
@@ -1108,6 +1114,12 @@ function initManagementTabs() {
                 if (document.getElementById('add-car-form') && !document.getElementById('add-car-form').dataset.initialized) {
                     initAddCarForm();
                     document.getElementById('add-car-form').dataset.initialized = 'true';
+                }
+            } else if (firstTab.dataset.tab === 'add-part') {
+                // Инициализируем форму, если она еще не инициализирована
+                if (document.getElementById('add-part-form') && !document.getElementById('add-part-form').dataset.initialized) {
+                    initAddPartForm();
+                    document.getElementById('add-part-form').dataset.initialized = 'true';
                 }
             }
         }
@@ -1495,6 +1507,117 @@ async function loadCarTrims(brandName = null, modelName = null) {
     }
 }
 
+// Функция для инициализации обработчиков выбора и загрузки файла (универсальная для авто и запчастей)
+// type: 'car' или 'part'
+function initImageInputHandlers(imageGroup, type = 'car') {
+    const fileInput = imageGroup.querySelector('.image-file-input');
+    const selectBtn = imageGroup.querySelector('.select-image-btn');
+    const filenameSpan = imageGroup.querySelector('.image-filename');
+    const urlInput = imageGroup.querySelector('.image-url-input');
+    const previewDiv = imageGroup.querySelector('.image-preview');
+    const previewImg = previewDiv ? previewDiv.querySelector('img') : null;
+    const statusDiv = imageGroup.querySelector('.image-upload-status');
+    
+    if (selectBtn && fileInput) {
+        // Обработчик клика на кнопку "Выбрать файл"
+        selectBtn.addEventListener('click', () => {
+            fileInput.click();
+        });
+        
+        // Обработчик выбора файла
+        fileInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            
+            // Проверяем тип файла
+            const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
+            if (!allowedTypes.includes(file.type)) {
+                if (statusDiv) {
+                    statusDiv.textContent = 'Ошибка: разрешены только JPG, JPEG и PNG';
+                    statusDiv.style.color = '#d32f2f';
+                }
+                return;
+            }
+            
+            // Проверяем размер файла (10 МБ)
+            if (file.size > 10 * 1024 * 1024) {
+                if (statusDiv) {
+                    statusDiv.textContent = 'Ошибка: файл слишком большой (макс. 10 МБ)';
+                    statusDiv.style.color = '#d32f2f';
+                }
+                return;
+            }
+            
+            // Показываем имя файла
+            if (filenameSpan) {
+                filenameSpan.textContent = file.name;
+            }
+            
+            // Показываем превью
+            if (previewDiv && previewImg) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewImg.src = e.target.result;
+                    previewDiv.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // Загружаем файл на сервер
+            if (statusDiv) {
+                statusDiv.textContent = 'Загрузка...';
+                statusDiv.style.color = '#666';
+            }
+            
+            try {
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                const uploadUrl = type === 'part' ? '/account/api/upload-part-image' : '/account/api/upload-image';
+                const response = await fetch(uploadUrl, {
+                    method: 'POST',
+                    credentials: 'include',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка при загрузке файла');
+                }
+                
+                // Сохраняем URL
+                if (urlInput) {
+                    urlInput.value = data.url;
+                }
+                
+                if (statusDiv) {
+                    statusDiv.textContent = 'Загружено';
+                    statusDiv.style.color = '#28a745';
+                }
+                
+                // Обновляем превью с загруженного URL
+                if (previewImg) {
+                    previewImg.src = data.url;
+                }
+                
+            } catch (err) {
+                console.error('Ошибка загрузки файла:', err);
+                if (statusDiv) {
+                    statusDiv.textContent = 'Ошибка: ' + (err.message || 'Не удалось загрузить файл');
+                    statusDiv.style.color = '#d32f2f';
+                }
+                if (filenameSpan) {
+                    filenameSpan.textContent = '';
+                }
+                if (previewDiv) {
+                    previewDiv.style.display = 'none';
+                }
+            }
+        });
+    }
+}
+
 // Инициализация формы добавления автомобиля
 function initAddCarForm() {
     const form = document.getElementById('add-car-form');
@@ -1552,7 +1675,7 @@ function initAddCarForm() {
             imagesContainer.appendChild(imageGroup);
             
             // Инициализируем обработчики для нового элемента
-            initImageInputHandlers(imageGroup);
+            initImageInputHandlers(imageGroup, 'car');
             
             updateRemoveButtons();
         });
@@ -1579,118 +1702,9 @@ function initAddCarForm() {
     updateRemoveButtons();
     
     // Инициализируем обработчики для существующих элементов изображений
-    document.querySelectorAll('.image-input-group').forEach(group => {
-        initImageInputHandlers(group);
+    document.querySelectorAll('#car-images-container .image-input-group').forEach(group => {
+        initImageInputHandlers(group, 'car');
     });
-    
-    // Функция для инициализации обработчиков выбора и загрузки файла
-    function initImageInputHandlers(imageGroup) {
-        const fileInput = imageGroup.querySelector('.image-file-input');
-        const selectBtn = imageGroup.querySelector('.select-image-btn');
-        const filenameSpan = imageGroup.querySelector('.image-filename');
-        const urlInput = imageGroup.querySelector('.image-url-input');
-        const previewDiv = imageGroup.querySelector('.image-preview');
-        const previewImg = previewDiv ? previewDiv.querySelector('img') : null;
-        const statusDiv = imageGroup.querySelector('.image-upload-status');
-        
-        if (selectBtn && fileInput) {
-            // Обработчик клика на кнопку "Выбрать файл"
-            selectBtn.addEventListener('click', () => {
-                fileInput.click();
-            });
-            
-            // Обработчик выбора файла
-            fileInput.addEventListener('change', async (e) => {
-                const file = e.target.files[0];
-                if (!file) return;
-                
-                // Проверяем тип файла
-                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png'];
-                if (!allowedTypes.includes(file.type)) {
-                    if (statusDiv) {
-                        statusDiv.textContent = 'Ошибка: разрешены только JPG, JPEG и PNG';
-                        statusDiv.style.color = '#d32f2f';
-                    }
-                    return;
-                }
-                
-                // Проверяем размер файла (10 МБ)
-                if (file.size > 10 * 1024 * 1024) {
-                    if (statusDiv) {
-                        statusDiv.textContent = 'Ошибка: файл слишком большой (макс. 10 МБ)';
-                        statusDiv.style.color = '#d32f2f';
-                    }
-                    return;
-                }
-                
-                // Показываем имя файла
-                if (filenameSpan) {
-                    filenameSpan.textContent = file.name;
-                }
-                
-                // Показываем превью
-                if (previewDiv && previewImg) {
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        previewImg.src = e.target.result;
-                        previewDiv.style.display = 'block';
-                    };
-                    reader.readAsDataURL(file);
-                }
-                
-                // Загружаем файл на сервер
-                if (statusDiv) {
-                    statusDiv.textContent = 'Загрузка...';
-                    statusDiv.style.color = '#666';
-                }
-                
-                try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    
-                    const response = await fetch('/account/api/upload-image', {
-                        method: 'POST',
-                        credentials: 'include',
-                        body: formData
-                    });
-                    
-                    const data = await response.json();
-                    
-                    if (!response.ok) {
-                        throw new Error(data.detail || 'Ошибка при загрузке файла');
-                    }
-                    
-                    // Сохраняем URL
-                    if (urlInput) {
-                        urlInput.value = data.url;
-                    }
-                    
-                    if (statusDiv) {
-                        statusDiv.textContent = 'Загружено';
-                        statusDiv.style.color = '#28a745';
-                    }
-                    
-                    // Обновляем превью с загруженного URL
-                    if (previewImg) {
-                        previewImg.src = data.url;
-                    }
-                    
-                } catch (err) {
-                    console.error('Ошибка загрузки файла:', err);
-                    if (statusDiv) {
-                        statusDiv.textContent = 'Ошибка: ' + (err.message || 'Не удалось загрузить файл');
-                        statusDiv.style.color = '#d32f2f';
-                    }
-                    if (filenameSpan) {
-                        filenameSpan.textContent = '';
-                    }
-                    if (previewDiv) {
-                        previewDiv.style.display = 'none';
-                    }
-                }
-            });
-        }
-    }
     
     // Обработчик кнопки "Характеристики"
     const toggleSpecsBtn = document.getElementById('toggle-specs-btn');
@@ -2223,6 +2237,989 @@ function initAddCarForm() {
 // Инициализируем форму при загрузке страницы
 if (document.getElementById('add-car-form')) {
     initAddCarForm();
+}
+
+// ========== Функции для работы с формой добавления запчасти ==========
+
+function initAddPartForm() {
+    const form = document.getElementById('add-part-form');
+    if (!form) return;
+    
+    // Проверяем, была ли уже инициализирована форма
+    if (form.dataset.initialized === 'true') {
+        return;
+    }
+    
+    let categoriesTree = [];
+    let selectedCategoryId = null;
+    let newCategories = []; // Категории, созданные локально, но еще не отправленные в БД
+    let selectedCategoryPath = []; // Путь выбранных категорий для сохранения при перерисовке
+    
+    // Загружаем дерево категорий
+    async function loadCategoriesTree(preserveSelections = false) {
+        try {
+            const response = await fetch('/account/api/part-categories', {
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Ошибка загрузки категорий');
+            const data = await response.json();
+            categoriesTree = data.categories || [];
+            
+            // Объединяем с локально созданными категориями
+            mergeNewCategoriesIntoTree();
+            
+            if (preserveSelections && selectedCategoryPath.length > 0) {
+                // Восстанавливаем выбранные категории
+                restoreCategorySelections();
+            } else {
+                renderCategoryLevel(0, null, false);
+                updateCategoryButtonsForLevel(0);
+            }
+        } catch (err) {
+            console.error('Ошибка загрузки категорий:', err);
+        }
+    }
+    
+    // Объединяет новые категории с деревом категорий
+    function mergeNewCategoriesIntoTree() {
+        // Сортируем новые категории по уровню (сначала родители, потом дети)
+        const sortedNewCategories = [...newCategories].sort((a, b) => {
+            // Если у одной есть parent_id, а у другой нет, то без parent_id идет первым
+            if (a.parent_id === null && b.parent_id !== null) return -1;
+            if (a.parent_id !== null && b.parent_id === null) return 1;
+            // Если обе имеют parent_id, сортируем по parent_id
+            if (a.parent_id !== null && b.parent_id !== null) {
+                return a.parent_id - b.parent_id;
+            }
+            return 0;
+        });
+        
+        sortedNewCategories.forEach(newCat => {
+            if (newCat.parent_id === null) {
+                // Это корневая категория
+                categoriesTree.push({
+                    category_id: newCat.temp_id,
+                    category_name: newCat.category_name,
+                    parent_id: null,
+                    children: []
+                });
+            } else {
+                // Это подкатегория - находим родителя и добавляем туда
+                const findAndAdd = (nodes, targetParentId) => {
+                    for (const node of nodes) {
+                        if (node.category_id === targetParentId || 
+                            (node.temp_id && node.temp_id === targetParentId)) {
+                            if (!node.children) node.children = [];
+                            node.children.push({
+                                category_id: newCat.temp_id,
+                                category_name: newCat.category_name,
+                                parent_id: targetParentId,
+                                children: []
+                            });
+                            return true;
+                        }
+                        if (node.children && node.children.length > 0) {
+                            if (findAndAdd(node.children, targetParentId)) return true;
+                        }
+                    }
+                    return false;
+                };
+                findAndAdd(categoriesTree, newCat.parent_id);
+            }
+        });
+    }
+    
+    // Восстанавливает выбранные категории после перерисовки
+    function restoreCategorySelections() {
+        if (selectedCategoryPath.length === 0) {
+            renderCategoryLevel(0, null, false);
+            return;
+        }
+        
+        // Восстанавливаем каждый уровень
+        let currentParentId = null;
+        for (let i = 0; i < selectedCategoryPath.length; i++) {
+            const categoryId = selectedCategoryPath[i];
+            renderCategoryLevel(i, currentParentId, true);
+            
+            const selector = document.getElementById(`part-category-level-${i}`);
+            if (selector) {
+                // Ищем категорию в селекторе (может быть temp_id или category_id)
+                const option = Array.from(selector.options).find(opt => {
+                    const optValue = parseInt(opt.value);
+                    return optValue === categoryId;
+                });
+                
+                if (option) {
+                    selector.value = option.value;
+                    // Не триггерим change для промежуточных уровней, только для последнего
+                    if (i === selectedCategoryPath.length - 1) {
+                        selector.dispatchEvent(new Event('change'));
+                    }
+                }
+            }
+            
+            // Обновляем currentParentId для следующего уровня
+            currentParentId = categoryId;
+        }
+        
+        // Устанавливаем selectedCategoryId на последнюю категорию в пути
+        if (selectedCategoryPath.length > 0) {
+            selectedCategoryId = selectedCategoryPath[selectedCategoryPath.length - 1];
+        }
+    }
+    
+    // Сохраняет текущий путь выбранных категорий
+    function saveCategoryPath() {
+        selectedCategoryPath = [];
+        const allSelectors = document.querySelectorAll('.part-category-select');
+        allSelectors.forEach(sel => {
+            const value = sel.value;
+            if (value) {
+                selectedCategoryPath.push(parseInt(value));
+            }
+        });
+    }
+    
+    // Рендерим уровень категорий
+    function renderCategoryLevel(level, parentId, preserveSelections = false) {
+        const selector = document.getElementById(`part-category-level-${level}`);
+        const levelsContainer = document.getElementById('part-category-levels');
+        const categorySelector = document.getElementById('part-category-selector');
+        
+        if (!selector) {
+            if (level === 0) {
+                // Для первого уровня селектор уже есть в HTML, просто обновляем его
+                const newSelector = document.getElementById(`part-category-level-${level}`);
+                // Управляем кнопками для level 0
+                updateCategoryButtonsForLevel(level);
+            } else {
+                // Создаем новый селектор для этого уровня (level > 0)
+                const levelDiv = document.createElement('div');
+                levelDiv.className = 'form-row';
+                levelDiv.style.marginTop = '10px';
+                levelDiv.innerHTML = `
+                    <div class="form-group" style="flex: 1;">
+                        <select id="part-category-level-${level}" class="part-category-select" data-level="${level}">
+                            <option value="">Выберите подкатегорию...</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="flex: 0 0 auto; margin-left: 10px;">
+                        <button type="button" class="btn btn-secondary btn-sm add-category-right-btn" data-level="${level}">+ Создать</button>
+                    </div>
+                `;
+                levelsContainer.appendChild(levelDiv);
+            }
+        }
+        
+        const newSelector = document.getElementById(`part-category-level-${level}`);
+        
+        // Для level 0 используем специальную логику кнопок
+        if (level === 0) {
+            updateCategoryButtonsForLevel(level);
+        }
+        
+        const addBtn = level === 0 
+            ? document.getElementById(`add-category-right-btn-${level}`) || document.getElementById(`add-category-below-btn-${level}`)
+            : document.querySelector(`.add-category-right-btn[data-level="${level}"]`);
+        
+        // Очищаем селектор
+        newSelector.innerHTML = '<option value="">Выберите подкатегорию...</option>';
+        
+        // Находим категории для этого уровня
+        let categories = [];
+        if (level === 0) {
+            categories = categoriesTree;
+        } else {
+            const findChildren = (nodes, targetParentId) => {
+                for (const node of nodes) {
+                    if (node.category_id === targetParentId || 
+                        (node.temp_id && node.temp_id === targetParentId)) {
+                        return node.children || [];
+                    }
+                    if (node.children && node.children.length > 0) {
+                        const found = findChildren(node.children, targetParentId);
+                        if (found.length > 0) return found;
+                    }
+                }
+                return [];
+            };
+            categories = findChildren(categoriesTree, parentId);
+        }
+        
+        // Заполняем селектор
+        categories.forEach(cat => {
+            const option = document.createElement('option');
+            // Используем temp_id если есть, иначе category_id
+            option.value = (cat.temp_id !== undefined) ? cat.temp_id : cat.category_id;
+            option.textContent = cat.category_name;
+            newSelector.appendChild(option);
+        });
+        
+        // Восстанавливаем выбранное значение, если нужно
+        if (preserveSelections && selectedCategoryPath.length > level) {
+            const valueToRestore = selectedCategoryPath[level];
+            const option = Array.from(newSelector.options).find(opt => {
+                const optValue = parseInt(opt.value);
+                return optValue === valueToRestore;
+            });
+            if (option) {
+                newSelector.value = option.value;
+            }
+        }
+        
+        // Обновляем кнопки для level 0 после заполнения опций
+        if (level === 0) {
+            updateCategoryButtonsForLevel(0);
+        }
+        
+        // Удаляем все уровни после текущего
+        const allSelectors = document.querySelectorAll('.part-category-select');
+        allSelectors.forEach(sel => {
+            const selLevel = parseInt(sel.dataset.level);
+            if (selLevel > level) {
+                sel.closest('.form-row').remove();
+            }
+        });
+        
+        // Обработчик выбора категории
+        newSelector.onchange = function() {
+            const categoryId = parseInt(this.value);
+            if (categoryId) {
+                selectedCategoryId = categoryId;
+                saveCategoryPath(); // Сохраняем путь
+                
+                // Проверяем, есть ли у этой категории дочерние
+                const findCategory = (nodes, targetId) => {
+                    for (const node of nodes) {
+                        if (node.category_id === targetId || 
+                            (node.temp_id && node.temp_id === targetId)) return node;
+                        if (node.children && node.children.length > 0) {
+                            const found = findCategory(node.children, targetId);
+                            if (found) return found;
+                        }
+                    }
+                    return null;
+                };
+                const selectedCategory = findCategory(categoriesTree, categoryId);
+                
+                if (selectedCategory && selectedCategory.children && selectedCategory.children.length > 0) {
+                    // Есть дочерние категории - показываем следующий уровень
+                    renderCategoryLevel(level + 1, categoryId, false);
+                }
+            } else {
+                // Сброс выбора - удаляем все последующие уровни
+                selectedCategoryId = null;
+                selectedCategoryPath = selectedCategoryPath.slice(0, level); // Обрезаем путь
+                
+                // Удаляем все уровни после текущего
+                const allSelectors = document.querySelectorAll('.part-category-select');
+                allSelectors.forEach(sel => {
+                    const selLevel = parseInt(sel.dataset.level);
+                    if (selLevel > level) {
+                        sel.closest('.form-row').remove();
+                    }
+                });
+            }
+        };
+        
+        // Обработчик создания новой категории (для уровней > 0 всегда справа)
+        if (addBtn && level > 0) {
+            addBtn.onclick = () => {
+                showCategoryInputForm(level, parentId, false); // false = добавлять в текущий уровень
+            };
+        }
+    }
+    
+    // Управление кнопками для level 0
+    function updateCategoryButtonsForLevel(level) {
+        if (level !== 0) return;
+        
+        const selector = document.getElementById(`part-category-level-${level}`);
+        const categorySelector = document.getElementById('part-category-selector');
+        if (!selector || !categorySelector) return;
+        
+        const belowBtn = document.getElementById('add-category-below-btn-0');
+        const rightBtn = document.getElementById('add-category-right-btn-0');
+        const selectorRow = selector.closest('.form-row');
+        
+        // Проверяем, есть ли категории в селекторе (кроме пустой опции)
+        const hasCategories = selector.options.length > 1;
+        
+        if (hasCategories) {
+            // Есть категории - показываем кнопку справа, скрываем снизу
+            if (belowBtn) belowBtn.style.display = 'none';
+            
+            // Создаем или показываем кнопку справа
+            if (!rightBtn) {
+                const rightBtnDiv = document.createElement('div');
+                rightBtnDiv.className = 'form-group';
+                rightBtnDiv.style.cssText = 'flex: 0 0 auto; margin-left: 10px;';
+                rightBtnDiv.innerHTML = `<button type="button" class="btn btn-secondary btn-sm" id="add-category-right-btn-0">+ Создать</button>`;
+                if (selectorRow) {
+                    selectorRow.appendChild(rightBtnDiv);
+                }
+            } else {
+                rightBtn.style.display = 'inline-block';
+            }
+            
+            // Обработчик для кнопки справа
+            const newRightBtn = document.getElementById('add-category-right-btn-0');
+            if (newRightBtn && !newRightBtn.dataset.handlerAdded) {
+                newRightBtn.onclick = () => {
+                    showCategoryInputForm(0, null, false); // false = добавлять в текущий уровень
+                };
+                newRightBtn.dataset.handlerAdded = 'true';
+            }
+        } else {
+            // Нет категорий - показываем кнопку снизу, скрываем справа
+            if (belowBtn) belowBtn.style.display = 'inline-block';
+            if (rightBtn) {
+                rightBtn.style.display = 'none';
+                // Удаляем кнопку справа, если она была создана
+                const rightBtnParent = rightBtn.parentElement;
+                if (rightBtnParent && rightBtnParent.classList.contains('form-group')) {
+                    rightBtnParent.remove();
+                }
+            }
+            
+            // Обработчик для кнопки снизу (создает категорию в первом уровне)
+            if (belowBtn && !belowBtn.dataset.handlerAdded) {
+                belowBtn.onclick = () => {
+                    showCategoryInputForm(0, null, false); // false = добавлять в текущий уровень (первый)
+                };
+                belowBtn.dataset.handlerAdded = 'true';
+            }
+        }
+    }
+    
+    // Показать форму ввода для создания категории
+    // createNewLevel: true = создать новый уровень (кнопка снизу), false = добавить в текущий (кнопка справа)
+    function showCategoryInputForm(level, parentId, createNewLevel = false) {
+        // Проверяем, не открыта ли уже форма на этом уровне
+        const existingForm = document.getElementById(`category-input-form-${level}`);
+        if (existingForm) {
+            existingForm.remove();
+            return;
+        }
+        
+        // Создаем форму ввода
+        const formDiv = document.createElement('div');
+        formDiv.id = `category-input-form-${level}`;
+        formDiv.className = 'category-input-form';
+        formDiv.style.marginTop = '10px';
+        formDiv.style.padding = '12px';
+        formDiv.style.background = '#f8f9fa';
+        formDiv.style.borderRadius = '8px';
+        formDiv.style.border = '1px solid #e0e0e0';
+        formDiv.innerHTML = `
+            <div class="form-row" style="align-items: center;">
+                <div class="form-group" style="flex: 1; margin-bottom: 0;">
+                    <input type="text" 
+                           id="new-category-name-${level}" 
+                           class="form-control" 
+                           placeholder="Введите название категории" 
+                           style="padding: 10px 14px; border: 2px solid #0066cc; border-radius: 6px; font-size: 14px; width: 100%;">
+                </div>
+                <div class="form-group" style="flex: 0 0 auto; margin-left: 10px; margin-bottom: 0;">
+                    <button type="button" class="btn btn-primary btn-sm" id="save-category-btn-${level}">Сохранить</button>
+                </div>
+                <div class="form-group" style="flex: 0 0 auto; margin-left: 10px; margin-bottom: 0;">
+                    <button type="button" class="btn btn-secondary btn-sm" id="cancel-category-btn-${level}">Отмена</button>
+                </div>
+            </div>
+        `;
+        
+        // Находим контейнер для вставки формы (после селектора этого уровня)
+        const selector = document.getElementById(`part-category-level-${level}`);
+        const selectorRow = selector ? selector.closest('.form-row') : null;
+        const levelsContainer = document.getElementById('part-category-levels');
+        
+        if (selectorRow && selectorRow.nextSibling) {
+            selectorRow.parentNode.insertBefore(formDiv, selectorRow.nextSibling);
+        } else if (selectorRow) {
+            selectorRow.parentNode.appendChild(formDiv);
+        } else if (level === 0) {
+            // Если это первый уровень, вставляем после основного селектора
+            const mainSelector = document.getElementById('part-category-selector');
+            if (mainSelector) {
+                mainSelector.appendChild(formDiv);
+            }
+        } else {
+            levelsContainer.appendChild(formDiv);
+        }
+        
+        // Фокус на поле ввода
+        const input = document.getElementById(`new-category-name-${level}`);
+        if (input) {
+            input.focus();
+            
+            // Обработчик Enter
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    document.getElementById(`save-category-btn-${level}`).click();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    document.getElementById(`cancel-category-btn-${level}`).click();
+                }
+            });
+        }
+        
+        // Обработчик сохранения
+        const saveBtn = document.getElementById(`save-category-btn-${level}`);
+        if (saveBtn) {
+            saveBtn.onclick = () => {
+                const categoryName = input.value.trim();
+                if (categoryName) {
+                    createCategory(categoryName, parentId, level, createNewLevel);
+                    formDiv.remove();
+                } else {
+                    alert('Введите название категории');
+                    input.focus();
+                }
+            };
+        }
+        
+        // Обработчик отмены
+        const cancelBtn = document.getElementById(`cancel-category-btn-${level}`);
+        if (cancelBtn) {
+            cancelBtn.onclick = () => {
+                formDiv.remove();
+            };
+        }
+    }
+    
+    // Создание новой категории (локально, без отправки в БД)
+    // createNewLevel: true = создать новый уровень, false = добавить в текущий
+    function createCategory(categoryName, parentId, level, createNewLevel = false) {
+        // Генерируем временный отрицательный ID для новой категории
+        const tempId = -Date.now(); // Уникальный отрицательный ID
+        
+        // Сохраняем текущий путь выбора перед добавлением категории
+        saveCategoryPath();
+        
+        // Добавляем новую категорию в локальный список
+        const newCategory = {
+            temp_id: tempId,
+            category_name: categoryName.trim(),
+            parent_id: parentId,
+            level: level
+        };
+        newCategories.push(newCategory);
+        
+        // Добавляем категорию в дерево категорий
+        if (parentId === null) {
+            // Это корневая категория
+            if (!categoriesTree.find(cat => (cat.temp_id && cat.temp_id === tempId) || 
+                                           (cat.category_id === tempId))) {
+                categoriesTree.push({
+                    category_id: tempId,
+                    temp_id: tempId,
+                    category_name: categoryName.trim(),
+                    parent_id: null,
+                    children: []
+                });
+            }
+        } else {
+            // Это подкатегория - находим родителя и добавляем туда
+            const findAndAdd = (nodes, targetParentId) => {
+                for (const node of nodes) {
+                    if (node.category_id === targetParentId || 
+                        (node.temp_id && node.temp_id === targetParentId)) {
+                        if (!node.children) node.children = [];
+                        // Проверяем, нет ли уже такой категории
+                        if (!node.children.find(child => 
+                            (child.temp_id && child.temp_id === tempId) || 
+                            (child.category_id === tempId))) {
+                            node.children.push({
+                                category_id: tempId,
+                                temp_id: tempId,
+                                category_name: categoryName.trim(),
+                                parent_id: targetParentId,
+                                children: []
+                            });
+                        }
+                        return true;
+                    }
+                    if (node.children && node.children.length > 0) {
+                        if (findAndAdd(node.children, targetParentId)) return true;
+                    }
+                }
+                return false;
+            };
+            findAndAdd(categoriesTree, parentId);
+        }
+        
+        // Добавляем опцию в существующий селектор, не перерисовывая весь уровень
+        const selector = document.getElementById(`part-category-level-${level}`);
+        if (selector) {
+            // Проверяем, нет ли уже такой опции
+            const existingOption = Array.from(selector.options).find(opt => parseInt(opt.value) === tempId);
+            if (!existingOption) {
+                // Добавляем новую опцию
+                const newOption = document.createElement('option');
+                newOption.value = tempId.toString();
+                newOption.textContent = categoryName.trim();
+                selector.appendChild(newOption);
+            }
+            // Выбираем созданную категорию
+            selector.value = tempId.toString();
+            // Обновляем путь выбора
+            selectedCategoryPath = selectedCategoryPath.slice(0, level);
+            selectedCategoryPath.push(tempId);
+            selectedCategoryId = tempId;
+            
+            // Если это level 0, обновляем кнопки
+            if (level === 0) {
+                updateCategoryButtonsForLevel(0);
+            }
+            
+            // Если createNewLevel = true, создаем следующий уровень (новую строку)
+            if (createNewLevel) {
+                // Создаем новый уровень с пустым селектором
+                renderCategoryLevel(level + 1, tempId, false);
+            } else {
+                // Просто добавляем в текущий уровень - триггерим событие change
+                selector.dispatchEvent(new Event('change'));
+            }
+        }
+    }
+    
+    // Автодополнение для спецификаций
+    function initSpecAutocomplete(input, fieldType) {
+        let suggestionsTimeout;
+        let suggestionsDropdown = null;
+        let selectedSuggestionIndex = -1;
+        let suggestions = [];
+        
+        // Создаем dropdown для подсказок
+        const createDropdown = () => {
+            if (suggestionsDropdown) return suggestionsDropdown;
+            suggestionsDropdown = document.createElement('div');
+            suggestionsDropdown.className = 'spec-suggestions-dropdown';
+            suggestionsDropdown.style.cssText = `
+                position: absolute;
+                background: white;
+                border: 1px solid #ddd;
+                border-radius: 4px;
+                max-height: 200px;
+                overflow-y: auto;
+                z-index: 1000;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                display: none;
+                width: 100%;
+                margin-top: 2px;
+            `;
+            input.parentElement.style.position = 'relative';
+            input.parentElement.appendChild(suggestionsDropdown);
+            return suggestionsDropdown;
+        };
+        
+        const loadSuggestions = async (query) => {
+            if (!query || query.length < 1) {
+                if (suggestionsDropdown) suggestionsDropdown.style.display = 'none';
+                return;
+            }
+            
+            try {
+                const categoryId = selectedCategoryId && selectedCategoryId > 0 ? selectedCategoryId : null;
+                let url = `/account/api/part-spec-autocomplete?field=${fieldType}&query=${encodeURIComponent(query)}`;
+                if (categoryId) {
+                    url += `&category_id=${categoryId}`;
+                }
+                
+                const response = await fetch(url, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) return;
+                
+                const data = await response.json();
+                suggestions = data.suggestions || [];
+                selectedSuggestionIndex = -1;
+                
+                if (suggestions.length > 0) {
+                    renderSuggestions(suggestions, query);
+                } else {
+                    if (suggestionsDropdown) suggestionsDropdown.style.display = 'none';
+                }
+            } catch (err) {
+                console.error('Ошибка загрузки подсказок:', err);
+                if (suggestionsDropdown) suggestionsDropdown.style.display = 'none';
+            }
+        };
+        
+        const renderSuggestions = (sugs, query) => {
+            const dropdown = createDropdown();
+            dropdown.innerHTML = '';
+            
+            sugs.forEach((suggestion, index) => {
+                const item = document.createElement('div');
+                item.className = 'spec-suggestion-item';
+                item.style.cssText = `
+                    padding: 8px 12px;
+                    cursor: pointer;
+                    border-bottom: 1px solid #f0f0f0;
+                `;
+                item.textContent = suggestion;
+                item.dataset.index = index;
+                
+                item.addEventListener('click', () => {
+                    input.value = suggestion;
+                    dropdown.style.display = 'none';
+                });
+                
+                item.addEventListener('mouseenter', () => {
+                    selectedSuggestionIndex = index;
+                    updateSuggestionSelection();
+                });
+                
+                dropdown.appendChild(item);
+            });
+            
+            dropdown.style.display = 'block';
+        };
+        
+        const updateSuggestionSelection = () => {
+            const items = suggestionsDropdown.querySelectorAll('.spec-suggestion-item');
+            items.forEach((item, index) => {
+                if (index === selectedSuggestionIndex) {
+                    item.style.backgroundColor = '#f0f0f0';
+                } else {
+                    item.style.backgroundColor = 'white';
+                }
+            });
+        };
+        
+        input.addEventListener('input', () => {
+            const query = input.value.trim();
+            clearTimeout(suggestionsTimeout);
+            suggestionsTimeout = setTimeout(() => {
+                loadSuggestions(query);
+            }, 300);
+        });
+        
+        input.addEventListener('blur', () => {
+            // Закрываем dropdown с небольшой задержкой, чтобы клик по элементу успел сработать
+            setTimeout(() => {
+                if (suggestionsDropdown) suggestionsDropdown.style.display = 'none';
+            }, 200);
+        });
+        
+        input.addEventListener('keydown', (e) => {
+            if (!suggestionsDropdown || suggestionsDropdown.style.display === 'none') return;
+            
+            const items = suggestionsDropdown.querySelectorAll('.spec-suggestion-item');
+            if (items.length === 0) return;
+            
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                selectedSuggestionIndex = Math.min(selectedSuggestionIndex + 1, items.length - 1);
+                updateSuggestionSelection();
+                items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                selectedSuggestionIndex = Math.max(selectedSuggestionIndex - 1, -1);
+                updateSuggestionSelection();
+                if (selectedSuggestionIndex >= 0) {
+                    items[selectedSuggestionIndex].scrollIntoView({ block: 'nearest' });
+                }
+            } else if (e.key === 'Enter' && selectedSuggestionIndex >= 0) {
+                e.preventDefault();
+                input.value = suggestions[selectedSuggestionIndex];
+                suggestionsDropdown.style.display = 'none';
+            } else if (e.key === 'Escape') {
+                suggestionsDropdown.style.display = 'none';
+            }
+        });
+    }
+    
+    // Управление спецификациями
+    const specsContainer = document.getElementById('part-specs-container');
+    const addSpecBtn = document.getElementById('add-spec-btn');
+    
+    function addSpecField(name = '', value = '', unit = '') {
+        const specGroup = document.createElement('div');
+        specGroup.className = 'spec-input-group';
+        specGroup.innerHTML = `
+            <div class="form-row">
+                <div class="form-group" style="flex: 1;">
+                    <input type="text" class="spec-name-input" placeholder="Название спецификации" value="${name}" autocomplete="off">
+                </div>
+                <div class="form-group" style="flex: 1;">
+                    <input type="text" class="spec-value-input" placeholder="Значение" value="${value}" autocomplete="off">
+                </div>
+                <div class="form-group" style="flex: 0 0 100px;">
+                    <input type="text" class="spec-unit-input" placeholder="Ед. изм." value="${unit}" autocomplete="off">
+                </div>
+                <div class="form-group" style="flex: 0 0 auto; margin-left: 10px;">
+                    <button type="button" class="btn btn-secondary btn-sm remove-spec-btn">Удалить</button>
+                </div>
+            </div>
+        `;
+        specsContainer.appendChild(specGroup);
+        
+        // Инициализируем автодополнение для новых полей
+        const nameInput = specGroup.querySelector('.spec-name-input');
+        const valueInput = specGroup.querySelector('.spec-value-input');
+        const unitInput = specGroup.querySelector('.spec-unit-input');
+        
+        if (nameInput) initSpecAutocomplete(nameInput, 'name');
+        if (valueInput) initSpecAutocomplete(valueInput, 'value');
+        if (unitInput) initSpecAutocomplete(unitInput, 'unit');
+    }
+    
+    function updateRemoveSpecButtons() {
+        const specGroups = specsContainer.querySelectorAll('.spec-input-group');
+        specGroups.forEach((group, index) => {
+            const removeBtn = group.querySelector('.remove-spec-btn');
+            if (removeBtn) {
+                removeBtn.style.display = specGroups.length > 1 ? 'inline-block' : 'none';
+            }
+        });
+    }
+    
+    if (addSpecBtn) {
+        addSpecBtn.addEventListener('click', () => {
+            addSpecField();
+            updateRemoveSpecButtons();
+        });
+    }
+    
+    if (specsContainer) {
+        specsContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-spec-btn')) {
+                e.target.closest('.spec-input-group').remove();
+                updateRemoveSpecButtons();
+            }
+        });
+    }
+    
+    // Управление изображениями (унифицировано с автомобилями)
+    const partImagesContainer = document.getElementById('part-images-container');
+    const addPartImageBtn = document.getElementById('add-part-image-btn');
+    
+    function updateRemovePartImageButtons() {
+        const imageGroups = partImagesContainer.querySelectorAll('.image-input-group');
+        imageGroups.forEach((group, index) => {
+            const removeBtn = group.querySelector('.remove-image-btn');
+            if (removeBtn) {
+                removeBtn.style.display = imageGroups.length > 1 ? 'inline-block' : 'none';
+            }
+        });
+    }
+    
+    if (addPartImageBtn && !addPartImageBtn.dataset.listenerAdded) {
+        addPartImageBtn.addEventListener('click', () => {
+            const imageGroup = document.createElement('div');
+            imageGroup.className = 'image-input-group';
+            imageGroup.innerHTML = `
+                <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                <input type="hidden" class="image-url-input" value="">
+                <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px; width: 100%;">
+                <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                    <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                </div>
+                <div class="image-upload-status" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+            `;
+            partImagesContainer.appendChild(imageGroup);
+            initImageInputHandlers(imageGroup, 'part');
+            updateRemovePartImageButtons();
+        });
+        addPartImageBtn.dataset.listenerAdded = 'true';
+    }
+    
+    if (partImagesContainer && !partImagesContainer.dataset.listenerAdded) {
+        partImagesContainer.addEventListener('click', (e) => {
+            if (e.target.classList.contains('remove-image-btn')) {
+                e.target.closest('.image-input-group').remove();
+                updateRemovePartImageButtons();
+            }
+        });
+        partImagesContainer.dataset.listenerAdded = 'true';
+    }
+    
+    // Инициализация существующих изображений
+    document.querySelectorAll('#part-images-container .image-input-group').forEach(group => {
+        initImageInputHandlers(group, 'part');
+    });
+    updateRemovePartImageButtons();
+    
+    // Инициализация автодополнения для существующих полей спецификаций
+    document.querySelectorAll('.spec-name-input').forEach(input => {
+        initSpecAutocomplete(input, 'name');
+    });
+    document.querySelectorAll('.spec-value-input').forEach(input => {
+        initSpecAutocomplete(input, 'value');
+    });
+    document.querySelectorAll('.spec-unit-input').forEach(input => {
+        initSpecAutocomplete(input, 'unit');
+    });
+    
+    // Обработчик отправки формы
+    if (!form.dataset.submitHandlerAdded) {
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            if (!selectedCategoryId) {
+                alert('Пожалуйста, выберите категорию');
+                return;
+            }
+            
+            const messageDiv = document.getElementById('add-part-message');
+            messageDiv.style.display = 'none';
+            
+            try {
+                // Определяем, является ли выбранная категория новой (temp_id отрицательный)
+                const isNewCategory = selectedCategoryId < 0;
+                
+                // Собираем данные формы
+                const partData = {
+                    part_name: document.getElementById('part-name').value.trim(),
+                    part_article: document.getElementById('part-article').value.trim() || null,
+                    description: document.getElementById('part-description').value.trim(),
+                    price: parseFloat(document.getElementById('part-price').value),
+                    stock_count: parseInt(document.getElementById('part-stock').value) || 0,
+                    manufacturer: document.getElementById('part-manufacturer').value,
+                    category_id: isNewCategory ? null : selectedCategoryId, // Если новая категория, будет null
+                    specifications: [],
+                    image_urls: [],
+                    new_categories: [] // Новые категории для создания
+                };
+                
+                // Если выбрана новая категория, собираем путь новых категорий
+                if (isNewCategory && newCategories.length > 0) {
+                    // Собираем путь категорий от корня до выбранной
+                    const categoryPath = [];
+                    let currentId = selectedCategoryId;
+                    let firstExistingParentId = null;
+                    
+                    // Проходим путь от выбранной категории к корню
+                    while (currentId !== null && currentId !== undefined) {
+                        const cat = newCategories.find(c => c.temp_id === currentId);
+                        if (cat) {
+                            categoryPath.unshift({
+                                category_name: cat.category_name,
+                                parent_id: null // Будет установлен бэкендом при создании
+                            });
+                            currentId = cat.parent_id;
+                        } else {
+                            // Если parent_id не найден в newCategories, значит это существующая категория
+                            if (currentId >= 0) {
+                                firstExistingParentId = currentId;
+                            }
+                            break;
+                        }
+                    }
+                    
+                    // Если есть существующий родитель, используем его ID как category_id
+                    // и устанавливаем parent_id для первой новой категории
+                    if (firstExistingParentId !== null) {
+                        partData.category_id = firstExistingParentId;
+                        if (categoryPath.length > 0) {
+                            categoryPath[0].parent_id = firstExistingParentId;
+                        }
+                    }
+                    
+                    partData.new_categories = categoryPath;
+                }
+                
+                // Собираем спецификации
+                const specGroups = specsContainer.querySelectorAll('.spec-input-group');
+                specGroups.forEach((group, index) => {
+                    const name = group.querySelector('.spec-name-input').value.trim();
+                    const value = group.querySelector('.spec-value-input').value.trim();
+                    const unit = group.querySelector('.spec-unit-input').value.trim();
+                    if (name && value) {
+                        partData.specifications.push({
+                            spec_name: name,
+                            spec_value: value,
+                            spec_unit: unit || null
+                        });
+                    }
+                });
+                
+                // Собираем изображения
+                const imageGroups = partImagesContainer.querySelectorAll('.image-input-group');
+                imageGroups.forEach((group, index) => {
+                    const url = group.querySelector('.image-url-input').value;
+                    const altText = group.querySelector('.image-alt-input').value.trim();
+                    if (url) {
+                        partData.image_urls.push({
+                            url: url,
+                            alt_text: altText || null,
+                            sort_order: index
+                        });
+                    }
+                });
+                
+                // Отправляем данные
+                const response = await fetch('/account/api/parts', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(partData)
+                });
+                
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.detail || 'Ошибка при создании запчасти');
+                }
+                
+                // Успех
+                messageDiv.textContent = data.message || 'Запчасть успешно добавлена';
+                messageDiv.className = 'success-message';
+                messageDiv.style.display = 'block';
+                messageDiv.style.color = '#28a745';
+                
+                // Очищаем форму
+                form.reset();
+                specsContainer.innerHTML = '';
+                addSpecField();
+                partImagesContainer.innerHTML = '';
+                const firstImageGroup = document.createElement('div');
+                firstImageGroup.className = 'image-input-group';
+                firstImageGroup.innerHTML = `
+                    <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                    <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                    <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                    <input type="hidden" class="image-url-input" value="">
+                    <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px; width: 100%;">
+                    <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                    <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                        <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                    </div>
+                    <div class="image-upload-status" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+                `;
+                partImagesContainer.appendChild(firstImageGroup);
+                initImageInputHandlers(firstImageGroup, 'part');
+                updateRemovePartImageButtons();
+                
+                // Сбрасываем категории
+                selectedCategoryId = null;
+                selectedCategoryPath = [];
+                newCategories = [];
+                document.getElementById('part-category-levels').innerHTML = '';
+                await loadCategoriesTree();
+                
+            } catch (err) {
+                console.error('Ошибка добавления запчасти:', err);
+                messageDiv.textContent = typeof err === 'string' ? err : err.message || 'Ошибка при добавлении запчасти';
+                messageDiv.className = 'error-message';
+                messageDiv.style.display = 'block';
+                messageDiv.style.color = '#d32f2f';
+            }
+        });
+        form.dataset.submitHandlerAdded = 'true';
+    }
+    
+    // Инициализация при загрузке
+    loadCategoriesTree();
+    updateRemoveSpecButtons();
 }
 
 // Экспортируем функции для использования в HTML

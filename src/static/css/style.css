@@ -3293,3 +3293,440 @@ textarea.form-control {
     border-radius: 8px;
     border: 1px solid #e0e0e0;
 }
+
+/* ========== Стили для формы добавления запчасти ========== */
+
+#add-part-form .form-group {
+    margin-bottom: 24px;
+}
+
+#add-part-form .form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+    font-size: 14px;
+    letter-spacing: 0.3px;
+}
+
+#add-part-form input[type="text"],
+#add-part-form input[type="number"],
+#add-part-form select,
+#add-part-form textarea {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: inherit;
+}
+
+#add-part-form textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+#add-part-form input[type="text"]:focus,
+#add-part-form input[type="number"]:focus,
+#add-part-form select:focus,
+#add-part-form textarea:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    background: #fafafa;
+}
+
+#add-part-form input[type="text"]:hover,
+#add-part-form input[type="number"]:hover,
+#add-part-form select:hover,
+#add-part-form textarea:hover {
+    border-color: #b3d9ff;
+}
+
+#add-part-form select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+/* Стили для иерархии категорий */
+#part-category-selector {
+    margin-bottom: 12px;
+}
+
+.part-category-select {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    background: #fff;
+    transition: all 0.3s ease;
+    outline: none;
+    font-family: inherit;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 40px;
+}
+
+.part-category-select:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    background-color: #fafafa;
+}
+
+.part-category-select:hover {
+    border-color: #b3d9ff;
+}
+
+#part-category-levels .form-row {
+    margin-top: 10px;
+    padding-left: 20px;
+    border-left: 2px solid #e0e0e0;
+}
+
+#part-category-levels .form-row:first-child {
+    padding-left: 0;
+    border-left: none;
+}
+
+/* Стили для формы ввода новой категории */
+.category-input-form {
+    margin-top: 10px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    animation: slideIn 0.3s ease;
+}
+
+.category-input-form .form-row {
+    margin-top: 0;
+    padding-left: 0;
+    border-left: none;
+}
+
+.category-input-form input[type="text"] {
+    padding: 10px 14px;
+    border: 2px solid #0066cc;
+    border-radius: 6px;
+    font-size: 14px;
+    width: 100%;
+    transition: all 0.3s ease;
+    outline: none;
+}
+
+.category-input-form input[type="text"]:focus {
+    border-color: #0052a3;
+    box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+    background: #fff;
+}
+
+.category-input-form .btn-sm {
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.category-input-form .btn-primary {
+    background: #0066cc;
+    color: #fff;
+    border: none;
+}
+
+.category-input-form .btn-primary:hover {
+    background: #0052a3;
+}
+
+.category-input-form .btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    border: 1px solid #ddd;
+}
+
+.category-input-form .btn-secondary:hover {
+    background: #e0e0e0;
+}
+
+/* Стили для спецификаций */
+.spec-input-group {
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+.spec-input-group:hover {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
+.spec-input-group .spec-name-input,
+.spec-input-group .spec-value-input,
+.spec-input-group .spec-unit-input {
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.spec-input-group .spec-name-input:focus,
+.spec-input-group .spec-value-input:focus,
+.spec-input-group .spec-unit-input:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    outline: none;
+}
+
+.spec-input-group .remove-spec-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+#add-spec-btn,
+#load-existing-specs-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    margin-right: 10px;
+}
+
+#add-spec-btn:hover,
+#load-existing-specs-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#load-existing-specs-btn {
+    background: #17a2b8;
+    color: #fff;
+    border: none;
+}
+
+#load-existing-specs-btn:hover {
+    background: #138496;
+}
+
+/* Стили для изображений запчастей */
+#add-part-form .image-input-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 12px;
+    padding: 12px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+    transition: all 0.3s ease;
+}
+
+#add-part-form .image-input-group:hover {
+    background: #f0f0f0;
+    border-color: #d0d0d0;
+}
+
+#add-part-form .part-image-file-input {
+    display: none;
+}
+
+#add-part-form .select-part-image-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    align-self: flex-start;
+}
+
+#add-part-form .part-image-filename {
+    color: #666;
+    font-size: 14px;
+    margin-left: 0;
+}
+
+#add-part-form .part-image-url-input {
+    display: none;
+}
+
+#add-part-form .part-image-alt-input {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+#add-part-form .part-image-alt-input:focus {
+    border-color: #0066cc;
+    box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.1);
+    outline: none;
+}
+
+#add-part-form .remove-part-image-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+    align-self: flex-start;
+}
+
+#add-part-form .image-preview {
+    max-width: 200px;
+    margin-top: 10px;
+}
+
+#add-part-form .image-preview img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+#add-part-form .image-upload-status {
+    margin-top: 5px;
+    font-size: 12px;
+    color: #666;
+}
+
+#add-part-image-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+}
+
+#add-part-image-btn:hover {
+    background: #0052a3;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+#add-part-form .form-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 30px;
+    padding-top: 24px;
+    border-top: 1px solid #e0e0e0;
+}
+
+#add-part-form .form-actions .btn {
+    padding: 12px 24px;
+    font-size: 15px;
+    font-weight: 600;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: none;
+}
+
+#add-part-form .form-actions .btn-primary {
+    background: #0066cc;
+    color: #fff;
+    flex: 1;
+}
+
+#add-part-form .form-actions .btn-primary:hover {
+    background: #0052a3;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 102, 204, 0.3);
+}
+
+#add-part-form .form-actions .btn-secondary {
+    background: #f0f0f0;
+    color: #333;
+    padding: 12px 24px;
+}
+
+#add-part-form .form-actions .btn-secondary:hover {
+    background: #e0e0e0;
+    transform: translateY(-1px);
+}
+
+#add-part-message {
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    margin-top: 20px;
+    animation: slideIn 0.3s ease;
+}
+
+#add-part-message.success-message {
+    background: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+#add-part-message.error-message {
+    background: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+#add-part-content h3 {
+    color: #333;
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+    border-bottom: 2px solid #0066cc;
+}
+
+/* Кнопки создания категорий */
+#part-category-selector .btn,
+#part-category-levels .btn {
+    padding: 10px 16px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+/* Адаптивность для формы добавления запчасти */
+@media (max-width: 768px) {
+    #add-part-form {
+        padding: 20px;
+    }
+    
+    #add-part-form .image-input-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    #add-part-form .part-image-alt-input {
+        width: 100%;
+    }
+    
+    #add-part-form .form-actions {
+        flex-direction: column;
+    }
+    
+    #add-part-form .form-actions .btn {
+        width: 100%;
+    }
+    
+    .spec-input-group .form-row {
+        flex-direction: column;
+    }
+    
+    .spec-input-group .form-group {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+    
+    #part-category-levels .form-row {
+        padding-left: 10px;
+    }
+}

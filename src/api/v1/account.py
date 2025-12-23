@@ -2,7 +2,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
-from sqlalchemy import select, update, distinct
+from sqlalchemy import select, update, distinct, func
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import RedirectResponse, JSONResponse
 from pydantic import BaseModel
@@ -19,8 +19,9 @@ except ImportError:
 
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
-from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum
+from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum, PartCategory, PartSpecification, ManufacturerEnum
 from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
+from src.repositories.part_repo import get_categories_tree, get_specs_for_category, create_part
 
 router = APIRouter(prefix="/account", tags=["account"])
 templates = Jinja2Templates(directory="src/templates")
@@ -979,4 +980,430 @@ async def upload_image(
         if file_path.exists():
             os.remove(file_path)
         raise HTTPException(status_code=500, detail=f"Ошибка при сохранении файла: {str(e)}")
+
+
+@router.post("/api/upload-part-image")
+async def upload_part_image(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user_from_cookie)
+):
+    """Загрузка изображения для запчасти (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем тип файла
+    allowed_extensions = {'.jpg', '.jpeg', '.png'}
+    file_ext = Path(file.filename).suffix.lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(status_code=400, detail="Недопустимый формат файла. Разрешены только JPG, JPEG и PNG.")
+    
+    # Проверяем размер файла (максимум 10 МБ)
+    file_content = await file.read()
+    if len(file_content) > 10 * 1024 * 1024:  # 10 МБ
+        raise HTTPException(status_code=400, detail="Файл слишком большой. Максимальный размер: 10 МБ.")
+    
+    # Создаем уникальное имя файла
+    unique_filename = f"{uuid.uuid4()}{file_ext}"
+    
+    # Путь для сохранения (в папке static/images/parts/uploads/)
+    upload_dir = Path("src/static/images/parts/uploads")
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    
+    file_path = upload_dir / unique_filename
+    
+    # Сохраняем файл
+    try:
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        # Проверяем, что это действительно изображение (если PIL доступен)
+        if HAS_PIL:
+            try:
+                img = PILImage.open(file_path)
+                img.verify()
+            except Exception:
+                # Если файл не является изображением, удаляем его
+                os.remove(file_path)
+                raise HTTPException(status_code=400, detail="Файл не является корректным изображением.")
+        
+        # Возвращаем URL для доступа к файлу
+        image_url = f"/static/images/parts/uploads/{unique_filename}"
+        
+        return JSONResponse({
+            "success": True,
+            "url": image_url,
+            "filename": unique_filename
+        })
+    except Exception as e:
+        # Если произошла ошибка при сохранении, удаляем файл если он был создан
+        if file_path.exists():
+            os.remove(file_path)
+        raise HTTPException(status_code=500, detail=f"Ошибка при сохранении файла: {str(e)}")
+
+
+# ========== API для работы с запчастями ==========
+
+@router.get("/api/part-categories")
+async def get_part_categories(
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить дерево категорий запчастей (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    tree = await get_categories_tree(session)
+    return {"categories": tree}
+
+
+class CreateCategoryRequest(BaseModel):
+    category_name: str
+    parent_id: Optional[int] = None
+
+
+@router.post("/api/part-categories")
+async def create_part_category(
+    category_data: CreateCategoryRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Создать новую категорию или подкатегорию (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Валидация названия категории
+    if not category_data.category_name or len(category_data.category_name.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Название категории не может быть пустым")
+    
+    if len(category_data.category_name) > 50:
+        raise HTTPException(status_code=400, detail="Название категории не может быть длиннее 50 символов")
+    
+    # Если указан parent_id, проверяем что родительская категория существует
+    if category_data.parent_id:
+        parent_result = await session.execute(
+            select(PartCategory).where(PartCategory.category_id == category_data.parent_id)
+        )
+        parent = parent_result.scalar_one_or_none()
+        if not parent:
+            raise HTTPException(status_code=404, detail="Родительская категория не найдена")
+    
+    # Проверяем уникальность названия в рамках одного уровня (одного родителя)
+    stmt = select(PartCategory).where(PartCategory.category_name == category_data.category_name.strip())
+    if category_data.parent_id:
+        stmt = stmt.where(PartCategory.parent_id == category_data.parent_id)
+    else:
+        stmt = stmt.where(PartCategory.parent_id.is_(None))
+    
+    existing = await session.execute(stmt)
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=400, detail="Категория с таким названием уже существует на этом уровне")
+    
+    # Создаём категорию
+    category = PartCategory(
+        category_name=category_data.category_name.strip(),
+        parent_id=category_data.parent_id
+    )
+    session.add(category)
+    await session.commit()
+    await session.refresh(category)
+    
+    return {
+        "category_id": category.category_id,
+        "category_name": category.category_name,
+        "parent_id": category.parent_id
+    }
+
+
+@router.get("/api/part-specs/{category_id}")
+async def get_part_specs_for_category(
+    category_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить существующие спецификации для категории (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем, что категория существует
+    category_result = await session.execute(
+        select(PartCategory).where(PartCategory.category_id == category_id)
+    )
+    if not category_result.scalar_one_or_none():
+        raise HTTPException(status_code=404, detail="Категория не найдена")
+    
+    # Получаем спецификации для этой категории
+    specs = await get_specs_for_category(session, category_id)
+    
+    # Преобразуем в удобный формат для фронтенда
+    specs_list = []
+    for spec_name, values in specs.items():
+        for value, unit in values:
+            specs_list.append({
+                "spec_name": spec_name,
+                "spec_value": value,
+                "spec_unit": unit
+            })
+    
+    return {"specifications": specs_list}
+
+
+@router.get("/api/part-spec-autocomplete")
+async def get_part_spec_autocomplete(
+    field: str = Query(..., description="Поле для автодополнения: name, value, unit"),
+    query: str = Query("", description="Поисковый запрос"),
+    category_id: Optional[int] = Query(None, description="ID категории для фильтрации"),
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Получить варианты автодополнения для спецификаций (без учета регистра)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    if field not in ["name", "value", "unit"]:
+        raise HTTPException(status_code=400, detail="Поле должно быть: name, value или unit")
+    
+    # Строим запрос
+    query_lower = query.lower().strip() if query else ""
+    
+    if field == "name":
+        stmt = select(PartSpecification.spec_name).distinct()
+        if query_lower:
+            stmt = stmt.where(func.lower(PartSpecification.spec_name).like(f"%{query_lower}%"))
+    elif field == "value":
+        stmt = select(PartSpecification.spec_value).distinct()
+        if query_lower:
+            stmt = stmt.where(func.lower(PartSpecification.spec_value).like(f"%{query_lower}%"))
+    else:  # unit
+        stmt = select(PartSpecification.spec_unit).distinct()
+        stmt = stmt.where(PartSpecification.spec_unit.is_not(None))
+        if query_lower:
+            stmt = stmt.where(func.lower(PartSpecification.spec_unit).like(f"%{query_lower}%"))
+    
+    # Фильтруем по категории, если указана
+    if category_id:
+        stmt = stmt.join(Part).where(Part.category_id == category_id)
+    
+    stmt = stmt.limit(20)
+    
+    result = await session.execute(stmt)
+    values = [row[0] for row in result.fetchall() if row[0]]
+    
+    # Сортируем и возвращаем
+    values.sort(key=lambda x: x.lower())
+    
+    return {"suggestions": values}
+
+
+class CreatePartRequest(BaseModel):
+    part_name: str
+    part_article: Optional[str] = None
+    description: str
+    price: float
+    stock_count: int = 0
+    manufacturer: str
+    category_id: Optional[int] = None  # Может быть None, если создаются новые категории
+    specifications: List[dict] = []  # [{"spec_name": "...", "spec_value": "...", "spec_unit": "..."}]
+    image_urls: Optional[List[dict]] = None  # [{"url": "...", "alt_text": "...", "sort_order": 0}]
+    new_categories: Optional[List[dict]] = None  # [{"category_name": "...", "parent_id": ...}]
+
+
+@router.post("/api/parts")
+async def create_part_endpoint(
+    part_data: CreatePartRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Создать новую запчасть (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Валидация обязательных полей
+    if not part_data.part_name or len(part_data.part_name.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Название запчасти не может быть пустым")
+    
+    if len(part_data.part_name) > 50:
+        raise HTTPException(status_code=400, detail="Название запчасти не может быть длиннее 50 символов")
+    
+    if not part_data.description or len(part_data.description.strip()) == 0:
+        raise HTTPException(status_code=400, detail="Описание не может быть пустым")
+    
+    if part_data.price < 0:
+        raise HTTPException(status_code=400, detail="Цена не может быть отрицательной")
+    
+    if part_data.stock_count < 0:
+        raise HTTPException(status_code=400, detail="Количество на складе не может быть отрицательным")
+    
+    # Валидация производителя
+    valid_manufacturers = [m.value for m in ManufacturerEnum]
+    if part_data.manufacturer not in valid_manufacturers:
+        raise HTTPException(status_code=400, detail=f"Неверный производитель. Допустимые значения: {', '.join(valid_manufacturers)}")
+    
+    # Обрабатываем новые категории, если они есть
+    final_category_id = part_data.category_id
+    
+    if part_data.new_categories and len(part_data.new_categories) > 0:
+        # Создаем новые категории последовательно
+        current_parent_id = part_data.category_id  # Начальный parent_id (может быть None)
+        
+        for new_cat_data in part_data.new_categories:
+            category_name = new_cat_data.get("category_name", "").strip()
+            parent_id = new_cat_data.get("parent_id")
+            
+            if not category_name:
+                raise HTTPException(status_code=400, detail="Название категории не может быть пустым")
+            
+            if len(category_name) > 50:
+                raise HTTPException(status_code=400, detail="Название категории не может быть длиннее 50 символов")
+            
+            # Используем current_parent_id, если parent_id не указан явно
+            if parent_id is None:
+                parent_id = current_parent_id
+            
+            # Если указан parent_id, проверяем что родительская категория существует
+            if parent_id is not None:
+                parent_result = await session.execute(
+                    select(PartCategory).where(PartCategory.category_id == parent_id)
+                )
+                parent = parent_result.scalar_one_or_none()
+                if not parent:
+                    raise HTTPException(status_code=404, detail=f"Родительская категория с ID {parent_id} не найдена")
+            
+            # Проверяем уникальность названия в рамках одного уровня
+            stmt = select(PartCategory).where(PartCategory.category_name == category_name)
+            if parent_id is not None:
+                stmt = stmt.where(PartCategory.parent_id == parent_id)
+            else:
+                stmt = stmt.where(PartCategory.parent_id.is_(None))
+            
+            existing = await session.execute(stmt)
+            if existing.scalar_one_or_none():
+                raise HTTPException(status_code=400, detail=f"Категория '{category_name}' уже существует на этом уровне")
+            
+            # Создаём категорию
+            category = PartCategory(
+                category_name=category_name,
+                parent_id=parent_id
+            )
+            session.add(category)
+            await session.flush()  # Получаем ID новой категории
+            await session.refresh(category)
+            
+            # Обновляем current_parent_id для следующей категории
+            current_parent_id = category.category_id
+        
+        # Используем ID последней созданной категории
+        final_category_id = current_parent_id
+    else:
+        # Если новых категорий нет, проверяем, что указанная категория существует
+        if part_data.category_id is None:
+            raise HTTPException(status_code=400, detail="Не указана категория")
+        
+        category_result = await session.execute(
+            select(PartCategory).where(PartCategory.category_id == part_data.category_id)
+        )
+        if not category_result.scalar_one_or_none():
+            raise HTTPException(status_code=404, detail="Категория не найдена")
+    
+    # Проверяем уникальность артикула (если указан)
+    if part_data.part_article:
+        article_check = await session.execute(
+            select(Part).where(Part.part_article == part_data.part_article.strip())
+        )
+        if article_check.scalar_one_or_none():
+            raise HTTPException(status_code=400, detail=f"Запчасть с артикулом {part_data.part_article} уже существует")
+    
+    # Подготавливаем данные для создания запчасти
+    part_dict = {
+        "part_name": part_data.part_name.strip(),
+        "part_article": part_data.part_article.strip() if part_data.part_article else None,
+        "description": part_data.description.strip(),
+        "price": part_data.price,
+        "stock_count": part_data.stock_count,
+        "manufacturer": part_data.manufacturer,
+        "category_id": final_category_id
+    }
+    
+    # Подготавливаем спецификации
+    specifications = []
+    for spec in part_data.specifications:
+        if spec.get("spec_name") and spec.get("spec_value"):
+            specifications.append({
+                "spec_name": spec["spec_name"].strip(),
+                "spec_value": spec["spec_value"].strip(),
+                "spec_unit": spec.get("spec_unit", "").strip() if spec.get("spec_unit") else None
+            })
+    
+    # Создаём запчасть через репозиторий (без изображений, добавим их после перемещения)
+    try:
+        part = await create_part(
+            session=session,
+            part_data=part_dict,
+            specifications=specifications,
+            image_urls=None  # Изображения добавим после перемещения файлов
+        )
+        
+        # Создаем папку для изображений запчасти
+        part_images_dir = Path(f"src/static/images/parts/{part.part_id}")
+        part_images_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Обрабатываем изображения: перемещаем из uploads/ в папку запчасти и переименовываем
+        if part_data.image_urls:
+            for idx, img_data in enumerate(part_data.image_urls):
+                original_url = img_data.get("url", "")
+                sort_order = img_data.get("sort_order", idx)
+                alt_text = img_data.get("alt_text", "")
+                
+                # Проверяем, что URL указывает на папку uploads
+                if original_url.startswith("/static/images/parts/uploads/"):
+                    # Извлекаем имя файла из URL
+                    filename = original_url.replace("/static/images/parts/uploads/", "")
+                    upload_path = Path(f"src/static/images/parts/uploads/{filename}")
+                    
+                    # Определяем расширение файла
+                    file_ext = upload_path.suffix.lower()
+                    if file_ext not in {'.jpg', '.jpeg', '.png'}:
+                        file_ext = '.jpg'  # По умолчанию jpg
+                    
+                    # Новое имя файла: part_{part_id}_{sort_order}.{ext}
+                    new_filename = f"part_{part.part_id}_{sort_order}{file_ext}"
+                    new_path = part_images_dir / new_filename
+                    
+                    # Перемещаем и переименовываем файл
+                    if upload_path.exists():
+                        try:
+                            upload_path.rename(new_path)
+                            # Новый URL для базы данных
+                            new_url = f"/static/images/parts/{part.part_id}/{new_filename}"
+                            
+                            # Создаем запись изображения в базе данных
+                            img = Image(
+                                part_id=part.part_id,
+                                url=new_url,
+                                alt_text=alt_text if alt_text else None,
+                                sort_order=sort_order
+                            )
+                            session.add(img)
+                        except Exception as e:
+                            # Если не удалось переместить, пропускаем это изображение
+                            print(f"Ошибка перемещения файла {filename}: {e}")
+                            pass
+        
+        await session.commit()
+        
+        return {
+            "success": True,
+            "message": "Запчасть успешно создана",
+            "part_id": part.part_id
+        }
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        await session.rollback()
+        raise HTTPException(status_code=500, detail=f"Ошибка при создании запчасти: {str(e)}")
 

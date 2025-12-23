@@ -409,7 +409,120 @@
                             
                             <!-- Подраздел: Добавить запчасть -->
                             <div id="add-part-content" class="management-subsection" style="display: none;">
-                                <p>Функционал добавления запчасти будет реализован позже</p>
+                                <h3>Добавить новую запчасть</h3>
+                                <form id="add-part-form">
+                                    <div class="form-group">
+                                        <label>Категория *</label>
+                                        <div id="part-category-selector">
+                                            <div class="form-row">
+                                                <div class="form-group" style="flex: 1;">
+                                                    <select id="part-category-level-0" class="part-category-select" data-level="0">
+                                                        <option value="">Выберите категорию...</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                            <div style="margin-top: 10px;">
+                                                <button type="button" class="btn btn-secondary btn-sm" id="add-category-below-btn-0">+ Создать новую категорию</button>
+                                            </div>
+                                        </div>
+                                        <div id="part-category-levels"></div>
+                                    </div>
+                                    
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="part-name">Название запчасти *</label>
+                                            <input type="text" id="part-name" name="part_name" maxlength="50" required>
+                                        </div>
+                                        
+                                        <div class="form-group half-width">
+                                            <label for="part-article">Артикул</label>
+                                            <input type="text" id="part-article" name="part_article" maxlength="70">
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="part-description">Описание *</label>
+                                        <textarea id="part-description" name="description" rows="4" required></textarea>
+                                    </div>
+                                    
+                                    <div class="form-row">
+                                        <div class="form-group half-width">
+                                            <label for="part-price">Цена (руб.) *</label>
+                                            <input type="number" id="part-price" name="price" min="0" step="0.01" required>
+                                        </div>
+                                        
+                                        <div class="form-group half-width">
+                                            <label for="part-stock">Количество на складе *</label>
+                                            <input type="number" id="part-stock" name="stock_count" min="0" value="0" required>
+                                        </div>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label for="part-manufacturer">Производитель *</label>
+                                        <select id="part-manufacturer" name="manufacturer" required>
+                                            <option value="">Выберите производителя...</option>
+                                            <option value="Bosch">Bosch</option>
+                                            <option value="Mann-Filter">Mann-Filter</option>
+                                            <option value="KYB">KYB</option>
+                                            <option value="Brembo">Brembo</option>
+                                            <option value="Continental">Continental</option>
+                                            <option value="Delphi">Delphi</option>
+                                            <option value="Magneti Marelli">Magneti Marelli</option>
+                                            <option value="Valeo">Valeo</option>
+                                            <option value="Zf">Zf</option>
+                                            <option value="LUK">LUK</option>
+                                        </select>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Спецификации</label>
+                                        <div id="part-specs-container">
+                                            <div class="spec-input-group">
+                                                <div class="form-row">
+                                                    <div class="form-group" style="flex: 1;">
+                                                        <input type="text" class="spec-name-input" placeholder="Название спецификации">
+                                                    </div>
+                                                    <div class="form-group" style="flex: 1;">
+                                                        <input type="text" class="spec-value-input" placeholder="Значение">
+                                                    </div>
+                                                    <div class="form-group" style="flex: 0 0 100px;">
+                                                        <input type="text" class="spec-unit-input" placeholder="Ед. изм.">
+                                                    </div>
+                                                    <div class="form-group" style="flex: 0 0 auto; margin-left: 10px;">
+                                                        <button type="button" class="btn btn-secondary btn-sm remove-spec-btn" style="display: none;">Удалить</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="add-spec-btn" class="btn btn-secondary btn-sm">+ Добавить спецификацию</button>
+                                    </div>
+                                    
+                                    <div class="form-group">
+                                        <label>Изображения</label>
+                                        <div id="part-images-container">
+                                            <div class="image-input-group">
+                                                <input type="file" class="image-file-input" accept="image/jpeg,image/jpg,image/png" style="display: none;">
+                                                <button type="button" class="btn btn-secondary btn-sm select-image-btn">Выбрать файл</button>
+                                                <span class="image-filename" style="margin-left: 10px; color: #666;"></span>
+                                                <input type="hidden" class="image-url-input" value="">
+                                                <input type="text" class="image-alt-input" placeholder="Альтернативный текст" style="margin-top: 10px; width: 100%;">
+                                                <button type="button" class="btn btn-secondary btn-sm remove-image-btn" style="display: none; margin-top: 10px;">Удалить</button>
+                                                <div class="image-preview" style="margin-top: 10px; max-width: 200px; display: none;">
+                                                    <img src="" alt="Preview" style="max-width: 100%; height: auto; border-radius: 4px;">
+                                                </div>
+                                                <div class="image-upload-status" style="margin-top: 5px; font-size: 12px; color: #666;"></div>
+                                            </div>
+                                        </div>
+                                        <button type="button" id="add-part-image-btn" class="btn btn-secondary btn-sm">+ Добавить изображение</button>
+                                    </div>
+                                    
+                                    <div class="form-actions">
+                                        <button type="submit" class="btn btn-primary">Добавить запчасть</button>
+                                        <button type="reset" class="btn btn-secondary">Очистить</button>
+                                    </div>
+                                    
+                                    <div id="add-part-message" style="display: none;"></div>
+                                </form>
                             </div>
                             
                             <!-- Подраздел: Добавить авто -->
@@ -619,11 +732,6 @@
                                     
                                     <div id="add-car-message" style="display: none;"></div>
                                 </form>
-                            </div>
-                            
-                            <!-- Подраздел: Добавить авто -->
-                            <div id="add-car-content" class="management-subsection" style="display: none;">
-                                <p>Функционал добавления автомобиля будет реализован позже</p>
                             </div>
                         </div>
                     </div>
