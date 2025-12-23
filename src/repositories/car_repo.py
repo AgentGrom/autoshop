@@ -302,10 +302,14 @@ async def search_and_filter_cars(
     fuel_types: Optional[List[str]] = None,
     limit: int = 20,
     offset: int = 0,
+    show_all: bool = False,  # Для администраторов показывать все, включая невидимые
 ) -> List[Car]:
     """
     Сначала ищет, потом фильтрует.
+    Если show_all=True, показывает все автомобили, включая невидимые (для администраторов).
     """
+    from sqlalchemy import case
+    
     conditions_list = build_filter_conditions(
         colors=colors,
         min_mileage=min_mileage,
@@ -335,17 +339,27 @@ async def search_and_filter_cars(
         stmt = (
             select(Car)
             .join(Car.trim)
-            .where(
-                Car.car_id.in_(car_ids),
-                Car.is_visible == True
-            )
+            .where(Car.car_id.in_(car_ids))
         )
+        if not show_all:
+            stmt = stmt.where(Car.is_visible == True)
     else:
         stmt = (
             select(Car)
             .join(Car.trim)
-            .where(Car.is_visible == True)
         )
+        if not show_all:
+            stmt = stmt.where(Car.is_visible == True)
+    
+    # Сортировка: сначала видимые, потом невидимые (для администраторов)
+    if show_all:
+        visibility_priority = case(
+            (Car.is_visible == True, 0),
+            else_=1
+        )
+        stmt = stmt.order_by(visibility_priority.asc(), Car.car_id.desc())
+    else:
+        stmt = stmt.order_by(Car.car_id.desc())
 
     return await apply_filters_and_execute(session, stmt, conditions_list, limit, offset)
 

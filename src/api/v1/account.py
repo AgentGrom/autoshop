@@ -1,5 +1,5 @@
 # src/api/v1/account.py
-from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, UploadFile, File
+from fastapi import APIRouter, Depends, HTTPException, status, Request, Query, Query, UploadFile, File
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy import select, update, distinct, func
@@ -19,9 +19,10 @@ except ImportError:
 
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
-from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum, PartCategory, PartSpecification, ManufacturerEnum
+from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, UserStatusEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum, PartCategory, PartSpecification, ManufacturerEnum
 from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
 from src.repositories.part_repo import get_categories_tree, get_specs_for_category, create_part, update_part
+from src.repositories.user_repo import get_user_by_id, get_user_by_email
 
 router = APIRouter(prefix="/account", tags=["account"])
 templates = Jinja2Templates(directory="src/templates")
@@ -205,6 +206,35 @@ async def update_profile(
     
     # Обновляем телефон только если его не было при регистрации
     if update_data.phone_number is not None:
+        # Валидация формата телефона
+        import re
+        phone = update_data.phone_number.strip()
+        if phone:
+            # Удаляем все пробелы, дефисы, скобки и другие символы для проверки
+            cleaned = re.sub(r'[\s\-\(\)\+]', '', phone)
+            
+            # Проверяем, что остались только цифры
+            if not re.match(r'^\d+$', cleaned):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Телефон должен содержать только цифры, пробелы, дефисы, скобки и знак +"
+                )
+            
+            # Проверяем длину (должно быть 10 или 11 цифр)
+            if len(cleaned) < 10 or len(cleaned) > 11:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Телефон должен содержать 10 или 11 цифр"
+                )
+            
+            # Если 11 цифр, проверяем что начинается с 7 или 8
+            if len(cleaned) == 11:
+                if not cleaned.startswith('7') and not cleaned.startswith('8'):
+                    raise HTTPException(
+                        status_code=400,
+                        detail="Телефон из 11 цифр должен начинаться с 7 или 8"
+                    )
+        
         # Проверяем, был ли телефон изначально (при регистрации)
         # Если phone_number был None или пустой строкой, можно обновить
         if not user.phone_number or user.phone_number == "":
@@ -366,15 +396,29 @@ async def get_management_orders(
     
     from sqlalchemy import case
     
-    # Создаем приоритеты для статусов: Отправлен (1) → В обработке (2)
+    # Для администраторов показываем все заказы, для менеджеров - только активные
+    is_admin = current_user.role == UserRoleEnum.ADMIN.value
+    
+    # Создаем приоритеты для статусов: Отправлен (1) → В обработке (2) → Доставлен (3) → Отменен (4)
     status_priority = case(
         (Order.status == OrderStatusEnum.SHIPPED.value, 1),
         (Order.status == OrderStatusEnum.PROCESSING.value, 2),
-        else_=3
+        (Order.status == OrderStatusEnum.DELIVERED.value, 3),
+        (Order.status == OrderStatusEnum.CANCELLED.value, 4),
+        else_=5
     )
     
-    # Получаем только заказы, которые не доставлены и не отменены
-    result = await session.execute(
+    # Условия фильтрации
+    where_conditions = []
+    if not is_admin:
+        # Менеджеры видят только активные заказы
+        where_conditions.extend([
+            Order.status != OrderStatusEnum.DELIVERED.value,
+            Order.status != OrderStatusEnum.CANCELLED.value
+        ])
+    # Администраторы видят все заказы
+    
+    stmt = (
         select(Order)
         .options(
             selectinload(Order.order_items).selectinload(OrderItem.part).selectinload(Part.images),
@@ -384,11 +428,13 @@ async def get_management_orders(
             selectinload(Order.shipping_address),
             selectinload(Order.user)
         )
-        .where(
-            Order.status != OrderStatusEnum.DELIVERED.value,
-            Order.status != OrderStatusEnum.CANCELLED.value
-        )
-        .order_by(status_priority.asc(), Order.order_date.desc())
+    )
+    
+    if where_conditions:
+        stmt = stmt.where(*where_conditions)
+    
+    result = await session.execute(
+        stmt.order_by(status_priority.asc(), Order.order_date.desc())
     )
     orders = result.scalars().all()
     
@@ -1450,5 +1496,153 @@ async def update_part_stock(
         "message": "Количество товара обновлено",
         "part_id": part.part_id,
         "stock_count": part.stock_count
+    }
+
+
+# ========== АДМИН-ПАНЕЛЬ: УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (только для администраторов) ==========
+
+class SearchUserRequest(BaseModel):
+    query: str  # ID или email
+
+
+@router.get("/api/admin/search-user")
+async def search_user(
+    query: str = Query(..., description="ID пользователя или email"),
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Поиск пользователя по ID или email (только для администраторов)"""
+    # Проверяем права доступа
+    if current_user.role != UserRoleEnum.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
+    
+    # Пытаемся найти по ID (если query - число)
+    user = None
+    try:
+        user_id = int(query)
+        user = await get_user_by_id(session, user_id)
+    except ValueError:
+        # Если не число, ищем по email
+        user = await get_user_by_email(session, query)
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    return {
+        "user_id": user.user_id,
+        "email": user.email,
+        "phone_number": user.phone_number,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "middle_name": user.middle_name,
+        "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+        "status": user.status.value if hasattr(user.status, 'value') else str(user.status),
+        "email_verified": user.email_verified,
+        "phone_verified": user.phone_verified,
+        "registration_date": user.registration_date.isoformat() if user.registration_date else None
+    }
+
+
+class UpdateUserRequest(BaseModel):
+    email: Optional[str] = None
+    phone_number: Optional[str] = None
+    email_verified: Optional[bool] = None
+    phone_verified: Optional[bool] = None
+    role: Optional[str] = None
+    status: Optional[str] = None
+
+
+@router.put("/api/admin/update-user/{user_id}")
+async def update_user(
+    user_id: int,
+    update_data: UpdateUserRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Обновить данные пользователя (только для администраторов)"""
+    # Проверяем права доступа
+    if current_user.role != UserRoleEnum.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
+    
+    # Получаем пользователя
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    # Обновляем поля
+    if update_data.email is not None:
+        # Проверяем уникальность email (если он изменился)
+        if update_data.email != user.email:
+            existing_user = await get_user_by_email(session, update_data.email)
+            if existing_user and existing_user.user_id != user_id:
+                raise HTTPException(status_code=400, detail="Пользователь с таким email уже существует")
+        user.email = update_data.email
+    
+    if update_data.phone_number is not None:
+        user.phone_number = update_data.phone_number
+    
+    if update_data.email_verified is not None:
+        user.email_verified = update_data.email_verified
+    
+    if update_data.phone_verified is not None:
+        user.phone_verified = update_data.phone_verified
+    
+    if update_data.role is not None:
+        try:
+            user.role = UserRoleEnum(update_data.role).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверное значение роли")
+    
+    if update_data.status is not None:
+        try:
+            user.status = UserStatusEnum(update_data.status).value
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Неверное значение статуса")
+    
+    await session.commit()
+    await session.refresh(user)
+    
+    return {
+        "success": True,
+        "message": "Данные пользователя обновлены",
+        "user": {
+            "user_id": user.user_id,
+            "email": user.email,
+            "phone_number": user.phone_number,
+            "email_verified": user.email_verified,
+            "phone_verified": user.phone_verified,
+            "role": user.role.value if hasattr(user.role, 'value') else str(user.role),
+            "status": user.status.value if hasattr(user.status, 'value') else str(user.status)
+        }
+    }
+
+
+@router.delete("/api/admin/delete-user/{user_id}")
+async def delete_user(
+    user_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Удалить пользователя (только для администраторов)"""
+    # Проверяем права доступа
+    if current_user.role != UserRoleEnum.ADMIN.value:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
+    
+    # Нельзя удалить самого себя
+    if user_id == current_user.user_id:
+        raise HTTPException(status_code=400, detail="Нельзя удалить свой собственный аккаунт")
+    
+    # Получаем пользователя
+    user = await get_user_by_id(session, user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    # Удаляем пользователя (каскадное удаление обработается через relationships)
+    await session.delete(user)
+    await session.commit()
+    
+    return {
+        "success": True,
+        "message": "Пользователь успешно удален"
     }
 

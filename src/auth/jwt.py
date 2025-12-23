@@ -8,6 +8,7 @@ from fastapi.security import OAuth2PasswordBearer
 from src.config import JWT_KEY
 from src.database.database import get_async_session
 from src.repositories.user_repo import get_user_by_email
+from src.database.models import User
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,4 +86,29 @@ async def get_current_user_from_cookie(
     user = await get_user_by_email(session, email=email)
     if user is None:
         raise credentials_exception
+    return user
+
+
+async def get_optional_user_from_cookie(
+    request: Request,
+    session: AsyncSession = Depends(get_async_session)
+) -> Optional[User]:
+    """
+    Получает текущего пользователя из cookie (для веб-интерфейса).
+    Возвращает None, если пользователь не авторизован (не выбрасывает исключение).
+    Используется для опциональной авторизации.
+    """
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+    
+    try:
+        payload = jwt.decode(token, JWT_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None:
+            return None
+    except jwt.PyJWTError:
+        return None
+    
+    user = await get_user_by_email(session, email=email)
     return user

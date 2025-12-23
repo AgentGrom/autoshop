@@ -196,6 +196,41 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     if (updatePhoneForm) {
         updatePhoneForm.addEventListener('submit', handlePhoneUpdate);
+        
+        // Добавляем валидацию при вводе телефона
+        const phoneInput = document.getElementById('add-phone-number');
+        const phoneErrorDiv = document.getElementById('phone-format-error');
+        
+        if (phoneInput && phoneErrorDiv) {
+            phoneInput.addEventListener('input', (e) => {
+                const phone = e.target.value.trim();
+                if (phone) {
+                    const validation = validatePhoneNumber(phone);
+                    if (!validation.valid) {
+                        phoneErrorDiv.textContent = validation.message;
+                        phoneErrorDiv.style.display = 'block';
+                        e.target.setCustomValidity(validation.message);
+                    } else {
+                        phoneErrorDiv.style.display = 'none';
+                        e.target.setCustomValidity('');
+                    }
+                } else {
+                    phoneErrorDiv.style.display = 'none';
+                    e.target.setCustomValidity('');
+                }
+            });
+            
+            phoneInput.addEventListener('blur', (e) => {
+                const phone = e.target.value.trim();
+                if (phone) {
+                    const validation = validatePhoneNumber(phone);
+                    if (!validation.valid) {
+                        phoneErrorDiv.textContent = validation.message;
+                        phoneErrorDiv.style.display = 'block';
+                    }
+                }
+            });
+        }
     }
     
     // Обработчики для добавления адреса
@@ -511,6 +546,9 @@ function renderOrder(order) {
                     <strong>Итого:</strong> ${order.total_amount.toLocaleString('ru-RU')} ₽
                 </div>
                 <div class="order-actions" style="margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end;">
+                    ${order.is_paid ? `
+                        <a href="/orders/api/order/${order.order_id}/receipt" class="btn btn-success btn-sm" style="text-decoration: none; display: inline-block;">📄 Скачать чек</a>
+                    ` : ''}
                     ${!order.is_paid && order.status !== 'Отменен' && order.status !== 'CANCELLED' ? `
                         <button class="btn btn-primary btn-sm" onclick="payOrder(${order.order_id})">Оплатить заказ</button>
                     ` : ''}
@@ -829,6 +867,39 @@ async function handlePasswordUpdate(e) {
     }
 }
 
+// Валидация формата телефона
+function validatePhoneNumber(phone) {
+    if (!phone) return { valid: false, message: 'Телефон не может быть пустым' };
+    
+    // Удаляем все пробелы, дефисы, скобки и другие символы для проверки
+    const cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
+    
+    // Проверяем различные форматы:
+    // +7XXXXXXXXXX (11 цифр после +7)
+    // 8XXXXXXXXXX (11 цифр начинающихся с 8)
+    // 7XXXXXXXXXX (11 цифр начинающихся с 7)
+    // XXXXXXXXXX (10 цифр)
+    
+    // Проверяем, что остались только цифры
+    if (!/^\d+$/.test(cleaned)) {
+        return { valid: false, message: 'Телефон должен содержать только цифры, пробелы, дефисы, скобки и знак +' };
+    }
+    
+    // Проверяем длину (должно быть 10 или 11 цифр)
+    if (cleaned.length < 10 || cleaned.length > 11) {
+        return { valid: false, message: 'Телефон должен содержать 10 или 11 цифр' };
+    }
+    
+    // Если 11 цифр, проверяем что начинается с 7 или 8
+    if (cleaned.length === 11) {
+        if (!cleaned.startsWith('7') && !cleaned.startsWith('8')) {
+            return { valid: false, message: 'Телефон из 11 цифр должен начинаться с 7 или 8' };
+        }
+    }
+    
+    return { valid: true };
+}
+
 async function handlePhoneUpdate(e) {
     e.preventDefault();
     
@@ -838,8 +909,18 @@ async function handlePhoneUpdate(e) {
     successDiv.style.display = 'none';
     
     const formData = new FormData(e.target);
+    const phoneNumber = formData.get('phone_number').trim();
+    
+    // Валидация формата телефона
+    const validation = validatePhoneNumber(phoneNumber);
+    if (!validation.valid) {
+        errorDiv.textContent = validation.message;
+        errorDiv.style.display = 'block';
+        return;
+    }
+    
     const updateData = {
-        phone_number: formData.get('phone_number')
+        phone_number: phoneNumber
     };
     
     try {
@@ -1039,6 +1120,7 @@ async function cancelOrder(orderId) {
 // Показ вкладки "Управление" для менеджера и администратора
 function showManagementTab(role) {
     const managementTab = document.getElementById('management-tab');
+    const adminPanelTab = document.getElementById('admin-panel-tab');
     
     if (!managementTab) {
         return;
@@ -1049,6 +1131,15 @@ function showManagementTab(role) {
         managementTab.style.display = 'inline-block';
     } else {
         managementTab.style.display = 'none';
+    }
+    
+    // Показываем вкладку админ-панели только для администратора
+    if (adminPanelTab) {
+        if (role === 'Администратор' || role === 'ADMIN') {
+            adminPanelTab.style.display = 'inline-block';
+        } else {
+            adminPanelTab.style.display = 'none';
+        }
     }
 }
 
@@ -1093,6 +1184,12 @@ function initManagementTabs() {
                     if (document.getElementById('add-part-form') && !document.getElementById('add-part-form').dataset.initialized) {
                         initAddPartForm();
                         document.getElementById('add-part-form').dataset.initialized = 'true';
+                    }
+                } else if (targetTab === 'admin-panel') {
+                    // Инициализируем админ-панель, если она еще не инициализирована
+                    if (!document.getElementById('admin-panel-content').dataset.initialized) {
+                        initAdminPanel();
+                        document.getElementById('admin-panel-content').dataset.initialized = 'true';
                     }
                 }
             }
@@ -1255,8 +1352,12 @@ function renderManagementOrders(orders) {
             </div>
         ` : '';
         
+        // Определяем, является ли заказ завершенным
+        const isCompleted = order.status === 'Доставлен' || order.status === 'DELIVERED' || order.status === 'Отменен' || order.status === 'CANCELLED';
+        const orderCardClass = isCompleted ? 'order-card completed-order' : 'order-card';
+        
         return `
-            <div class="order-card" style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
+            <div class="${orderCardClass}" style="background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 15px;">
                     <div>
                         <h3 style="margin: 0 0 5px 0;">Заказ #${order.order_id}</h3>
@@ -1317,6 +1418,9 @@ function renderManagementOrders(orders) {
                 ${customerInfo}
                 
                 <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; display: flex; gap: 10px; flex-wrap: wrap;">
+                    ${order.is_paid ? `
+                        <a href="/orders/api/order/${order.order_id}/receipt" class="btn btn-success btn-sm" style="text-decoration: none; display: inline-block;">📄 Скачать чек</a>
+                    ` : ''}
                     ${statusActions}
                 </div>
             </div>
@@ -3222,6 +3326,214 @@ function initAddPartForm() {
     updateRemoveSpecButtons();
 }
 
+// ========== АДМИН-ПАНЕЛЬ: УПРАВЛЕНИЕ ПОЛЬЗОВАТЕЛЯМИ (только для администраторов) ==========
+
+let currentAdminUser = null;
+
+function initAdminPanel() {
+    const searchBtn = document.getElementById('admin-search-btn');
+    const searchInput = document.getElementById('admin-search-query');
+    const saveBtn = document.getElementById('admin-save-btn');
+    const cancelBtn = document.getElementById('admin-cancel-btn');
+    
+    if (searchBtn) {
+        searchBtn.addEventListener('click', handleAdminSearch);
+    }
+    
+    if (searchInput) {
+        searchInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleAdminSearch();
+            }
+        });
+    }
+    
+    if (saveBtn) {
+        saveBtn.addEventListener('click', handleAdminSave);
+    }
+    
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', handleAdminCancel);
+    }
+}
+
+async function handleAdminSearch() {
+    const query = document.getElementById('admin-search-query').value.trim();
+    const messageDiv = document.getElementById('admin-message');
+    const formDiv = document.getElementById('admin-user-form');
+    const searchBtn = document.getElementById('admin-search-btn');
+    
+    if (!query) {
+        showAdminMessage('Введите ID пользователя или email', 'error');
+        return;
+    }
+    
+    // Показываем индикатор загрузки
+    const oldBtnText = searchBtn.textContent;
+    searchBtn.disabled = true;
+    searchBtn.textContent = 'Поиск...';
+    formDiv.style.display = 'none';
+    messageDiv.style.display = 'none';
+    
+    try {
+        const response = await fetch(`/account/api/admin/search-user?query=${encodeURIComponent(query)}`, {
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            let errorMessage = 'Пользователь не найден';
+            try {
+                const error = await response.json();
+                if (response.status === 404) {
+                    errorMessage = `Пользователь с ID или email "${query}" не найден. Проверьте правильность введенных данных.`;
+                } else if (response.status === 403) {
+                    errorMessage = 'Доступ запрещен. Требуется роль администратора.';
+                } else {
+                    errorMessage = error.detail || errorMessage;
+                }
+            } catch (e) {
+                // Если не удалось распарсить JSON, используем стандартное сообщение
+                if (response.status === 404) {
+                    errorMessage = `Пользователь с ID или email "${query}" не найден. Проверьте правильность введенных данных.`;
+                }
+            }
+            throw new Error(errorMessage);
+        }
+        
+        const user = await response.json();
+        currentAdminUser = user;
+        
+        // Заполняем форму
+        document.getElementById('admin-user-id').value = user.user_id;
+        document.getElementById('admin-user-email').value = user.email || '';
+        document.getElementById('admin-user-phone').value = user.phone_number || '';
+        document.getElementById('admin-user-email-verified').value = user.email_verified ? 'true' : 'false';
+        document.getElementById('admin-user-phone-verified').value = user.phone_verified ? 'true' : 'false';
+        document.getElementById('admin-user-role').value = user.role;
+        document.getElementById('admin-user-status').value = user.status;
+        document.getElementById('admin-user-action').value = '';
+        
+        formDiv.style.display = 'block';
+        messageDiv.style.display = 'none';
+        showAdminMessage(`Пользователь найден: ${user.email} (ID: ${user.user_id})`, 'success');
+        
+    } catch (err) {
+        showAdminMessage(err.message || 'Ошибка поиска пользователя', 'error');
+        formDiv.style.display = 'none';
+    } finally {
+        // Восстанавливаем кнопку
+        searchBtn.disabled = false;
+        searchBtn.textContent = oldBtnText;
+    }
+}
+
+async function handleAdminSave() {
+    if (!currentAdminUser) {
+        showAdminMessage('Сначала найдите пользователя', 'error');
+        return;
+    }
+    
+    const action = document.getElementById('admin-user-action').value;
+    
+    if (!action) {
+        showAdminMessage('Выберите действие', 'error');
+        return;
+    }
+    
+    if (action === 'delete') {
+        if (!confirm(`Вы уверены, что хотите удалить пользователя ${currentAdminUser.email}? Это действие нельзя отменить.`)) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/account/api/admin/delete-user/${currentAdminUser.user_id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Ошибка удаления пользователя');
+            }
+            
+            const data = await response.json();
+            showAdminMessage(data.message || 'Пользователь успешно удален', 'success');
+            handleAdminCancel();
+            
+        } catch (err) {
+            showAdminMessage(err.message || 'Ошибка удаления пользователя', 'error');
+        }
+    } else if (action === 'update') {
+        const updateData = {
+            email: document.getElementById('admin-user-email').value.trim(),
+            phone_number: document.getElementById('admin-user-phone').value.trim() || null,
+            email_verified: document.getElementById('admin-user-email-verified').value === 'true',
+            phone_verified: document.getElementById('admin-user-phone-verified').value === 'true',
+            role: document.getElementById('admin-user-role').value,
+            status: document.getElementById('admin-user-status').value
+        };
+        
+        if (!updateData.email) {
+            showAdminMessage('Email не может быть пустым', 'error');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/account/api/admin/update-user/${currentAdminUser.user_id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'include',
+                body: JSON.stringify(updateData)
+            });
+            
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.detail || 'Ошибка обновления пользователя');
+            }
+            
+            const data = await response.json();
+            showAdminMessage(data.message || 'Данные пользователя успешно обновлены', 'success');
+            
+            // Обновляем текущего пользователя
+            currentAdminUser = data.user;
+            
+        } catch (err) {
+            showAdminMessage(err.message || 'Ошибка обновления пользователя', 'error');
+        }
+    }
+}
+
+function handleAdminCancel() {
+    document.getElementById('admin-user-form').style.display = 'none';
+    document.getElementById('admin-search-query').value = '';
+    document.getElementById('admin-message').style.display = 'none';
+    currentAdminUser = null;
+}
+
+function showAdminMessage(message, type) {
+    const messageDiv = document.getElementById('admin-message');
+    messageDiv.textContent = message;
+    messageDiv.style.display = 'block';
+    messageDiv.style.padding = '10px';
+    messageDiv.style.borderRadius = '4px';
+    
+    if (type === 'success') {
+        messageDiv.style.backgroundColor = '#d4edda';
+        messageDiv.style.color = '#155724';
+        messageDiv.style.border = '1px solid #c3e6cb';
+    } else {
+        messageDiv.style.backgroundColor = '#f8d7da';
+        messageDiv.style.color = '#721c24';
+        messageDiv.style.border = '1px solid #f5c6cb';
+    }
+    
+    setTimeout(() => {
+        messageDiv.style.display = 'none';
+    }, 5000);
+}
+
 // Экспортируем функции для использования в HTML
 window.payOrder = payOrder;
 window.cancelOrder = cancelOrder;
@@ -3230,5 +3542,4 @@ window.updateOrderPaymentStatus = updateOrderPaymentStatus;
 window.toggleEditAdminNotes = toggleEditAdminNotes;
 window.cancelEditAdminNotes = cancelEditAdminNotes;
 window.saveAdminNotes = saveAdminNotes;
-window.updateOrderPaymentStatus = updateOrderPaymentStatus;
 

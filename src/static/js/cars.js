@@ -96,12 +96,74 @@
                     }
                 });
             });
+            
+            // Обработчик для кнопки "Вернуть в продажу"
+            document.querySelectorAll('.return-to-sale-btn').forEach(btn => {
+                // Проверяем, не добавлен ли уже обработчик
+                if (btn.dataset.listenerAdded === 'true') {
+                    return;
+                }
+                
+                btn.dataset.listenerAdded = 'true';
+                
+                // Добавляем обработчик
+                btn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    const carId = parseInt(btn.dataset.carId);
+                    const carCard = btn.closest('.item-card');
+                    
+                    // Подтверждение
+                    const confirmed = confirm(
+                        'Вы уверены, что хотите вернуть этот автомобиль в продажу?'
+                    );
+                    
+                    if (!confirmed) {
+                        return;
+                    }
+                    
+                    // Отключаем кнопку на время запроса
+                    btn.disabled = true;
+                    btn.textContent = 'Обработка...';
+                    
+                    try {
+                        const response = await fetch(`/api/cars/${carId}/return-to-sale`, {
+                            method: 'POST',
+                            credentials: 'include',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            }
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.detail || 'Ошибка при возврате автомобиля в продажу');
+                        }
+                        
+                        // Успешно возвращено - перезагружаем страницу для обновления списка
+                        alert('Автомобиль успешно возвращен в продажу');
+                        window.location.reload();
+                        
+                    } catch (err) {
+                        console.error('Ошибка возврата автомобиля в продажу:', err);
+                        alert('Ошибка: ' + (err.message || 'Не удалось вернуть автомобиль в продажу'));
+                        
+                        // Восстанавливаем кнопку
+                        btn.disabled = false;
+                        btn.textContent = 'Вернуть в продажу';
+                    }
+                });
+            });
         }
 
         // ==== Создание карточки автомобиля ====
         function createCarCard(car) {
             const carCard = document.createElement('div');
-            carCard.className = 'item-card';
+            // Добавляем класс для невидимых автомобилей
+            const cardClass = car.is_visible === false ? 'item-card invisible-car' : 'item-card';
+            carCard.className = cardClass;
 
             let imagesHtml = '';
             if (car.images && car.images.length > 0) {
@@ -159,9 +221,15 @@
                     <a href="/cars/${car.car_id}" class="btn btn-primary car-price-btn">Подробнее о автомобиле</a>
                 </div>
                 <div class="car-manager-actions" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0e0e0;">
-                    <button type="button" class="btn btn-danger btn-sm remove-from-sale-btn" data-car-id="${car.car_id}">
-                        Снять с продажи
-                    </button>
+                    ${car.is_visible === false ? `
+                        <button type="button" class="btn btn-success btn-sm return-to-sale-btn" data-car-id="${car.car_id}">
+                            Вернуть в продажу
+                        </button>
+                    ` : `
+                        <button type="button" class="btn btn-danger btn-sm remove-from-sale-btn" data-car-id="${car.car_id}">
+                            Снять с продажи
+                        </button>
+                    `}
                 </div>
             `;
 

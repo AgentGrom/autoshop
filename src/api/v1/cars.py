@@ -5,7 +5,7 @@ from typing import List, Optional
 
 from src.database.database import get_async_session
 from src.repositories.car_repo import search_cars, filter_cars, search_and_filter_cars, get_car_by_id
-from src.auth.jwt import get_current_user_from_cookie
+from src.auth.jwt import get_current_user_from_cookie, get_optional_user_from_cookie
 from src.database.models import User, UserRoleEnum, Car
 from src.database.models import (
     CarBrandEnum,
@@ -62,11 +62,16 @@ async def get_cars(
     brands: Optional[List[str]] = Query(None),
     fuel_types: Optional[List[str]] = Query(None),
     query: str = Query(""),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    current_user: Optional[User] = Depends(get_optional_user_from_cookie)
 ):
     """
     Получить список автомобилей с пагинацией и фильтрами
+    Для администраторов показываются все автомобили, включая невидимые
     """
+    # Проверяем, является ли пользователь администратором
+    is_admin = current_user and current_user.role == UserRoleEnum.ADMIN.value
+    
     cars = await search_and_filter_cars(
         session=session,
         query=query if query else None,
@@ -90,7 +95,8 @@ async def get_cars(
         brands=brands,
         fuel_types=fuel_types,
         limit=limit,
-        offset=offset
+        offset=offset,
+        show_all=is_admin  # Для администраторов показываем все
     )
 
     # Проверяем, есть ли ещё автомобили для следующей страницы
@@ -131,6 +137,7 @@ async def get_cars(
             "mileage": car.mileage,
             "color": car.color,
             "price": float(car.price) if car.price else None,
+            "is_visible": car.is_visible,  # Добавляем поле видимости
             "trim": {
                 "brand_name": car.trim.brand_name.value if hasattr(car.trim.brand_name, 'value') else str(car.trim.brand_name) if car.trim.brand_name else "",
                 "model_name": car.trim.model_name if car.trim.model_name else "",
@@ -230,4 +237,38 @@ async def remove_car_from_sale(
     return {
         "success": True,
         "message": "Автомобиль успешно снят с продажи"
+    }
+
+
+@router.post("/{car_id}/return-to-sale")
+async def return_car_to_sale(
+    car_id: int,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Вернуть автомобиль в продажу (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Проверяем, что автомобиль существует
+    car = await get_car_by_id(session, car_id)
+    if not car:
+        raise HTTPException(status_code=404, detail="Автомобиль не найден")
+    
+    # Проверяем, что автомобиль снят с продажи
+    if car.is_visible:
+        raise HTTPException(status_code=400, detail="Автомобиль уже в продаже")
+    
+    # Возвращаем автомобиль в продажу
+    await session.execute(
+        update(Car)
+        .where(Car.car_id == car_id)
+        .values(is_visible=True)
+    )
+    await session.commit()
+    
+    return {
+        "success": True,
+        "message": "Автомобиль успешно возвращен в продажу"
     }
