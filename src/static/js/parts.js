@@ -1,6 +1,6 @@
 // Страница запчастей: список + карусель как на авто + 2 кнопки (Подробнее / В корзину)
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
     const grid = document.getElementById('parts-grid');
     const loader = document.getElementById('loader');
     const infiniteLoader = document.getElementById('infinite-loader');
@@ -36,6 +36,21 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedLeafCategoryId = null; // leaf для specs
     let specsMeta = null; // {filters: {...}}
     let currentSpecsFilters = {}; // {specName: [values] or {min,max}}
+    let isManagerOrAdmin = false; // Флаг для проверки роли
+    
+    // Проверяем роль пользователя
+    try {
+        const profileResponse = await fetch('/account/api/profile', {
+            credentials: 'include'
+        });
+        if (profileResponse.ok) {
+            const profileData = await profileResponse.json();
+            const userRole = profileData.role;
+            isManagerOrAdmin = (userRole === 'Менеджер' || userRole === 'MANAGER' || userRole === 'Администратор' || userRole === 'ADMIN');
+        }
+    } catch (err) {
+        console.error('Ошибка проверки роли:', err);
+    }
 
     function formatPrice(value) {
         if (value === null || value === undefined) return '—';
@@ -346,6 +361,11 @@ document.addEventListener('DOMContentLoaded', () => {
     function createPartCard(part) {
         const card = document.createElement('div');
         card.className = 'item-card';
+        
+        // Добавляем класс для товаров с нулевым количеством
+        if (part.stock_count === 0 || part.stock_count === null || part.stock_count === undefined) {
+            card.classList.add('out-of-stock');
+        }
 
         let imagesHtml = '';
         if (part.images && part.images.length > 0) {
@@ -396,7 +416,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="item-subtitle">${manufacturer}</div>
                     <div class="item-info">Артикул: <span>${article}</span></div>
                     <div class="item-info">Категория: <span>${category}</span></div>
-                    <div class="item-info">В наличии: <span>${stock}</span></div>
+                    <div class="item-info stock-info">
+                        <span>В наличии:</span>
+                        <span class="stock-count-wrapper">
+                            <span class="stock-count-display">${stock}</span>
+                            ${isManagerOrAdmin ? `
+                                <button class="btn-edit-stock" data-part-id="${part.part_id}" title="Изменить количество">✏️</button>
+                            ` : ''}
+                        </span>
+                    </div>
                 </div>
             </div>
             <div class="car-price-row">
@@ -434,7 +462,65 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         initializeCarousels(card);
+        
+        // Обработчик редактирования количества для менеджеров/администраторов
+        if (isManagerOrAdmin) {
+            const editStockBtn = card.querySelector('.btn-edit-stock');
+            if (editStockBtn) {
+                editStockBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    editStockCount(part.part_id, part.stock_count || 0, card);
+                });
+            }
+        }
+        
         return card;
+    }
+    
+    // Функция редактирования количества товара
+    async function editStockCount(partId, currentStock, cardElement) {
+        const newStock = prompt('Введите новое количество товара:', currentStock);
+        if (newStock === null) return; // Пользователь отменил
+        
+        const stockValue = parseInt(newStock);
+        if (isNaN(stockValue) || stockValue < 0) {
+            alert('Введите корректное число (0 или больше)');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/account/api/parts/${partId}/stock`, {
+                method: 'PATCH',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ stock_count: stockValue })
+            });
+            
+            const data = await response.json();
+            if (!response.ok) {
+                throw new Error(data.detail || 'Ошибка обновления количества');
+            }
+            
+            // Обновляем отображение
+            const stockDisplay = cardElement.querySelector('.stock-count-display');
+            if (stockDisplay) {
+                stockDisplay.textContent = stockValue === 0 ? '0 шт' : `${stockValue} шт`;
+            }
+            
+            // Обновляем класс карточки
+            if (stockValue === 0) {
+                cardElement.classList.add('out-of-stock');
+            } else {
+                cardElement.classList.remove('out-of-stock');
+            }
+            
+            // Обновляем данные в объекте part (если нужно)
+            // Можно перезагрузить список или обновить локально
+            
+        } catch (err) {
+            console.error('Ошибка обновления количества:', err);
+            alert('Ошибка: ' + (err.message || 'Не удалось обновить количество'));
+        }
     }
 
     // Карусель — копия логики из cars.js (индикаторы, hover-кнопки, автоплей)
@@ -721,6 +807,8 @@ document.addEventListener('DOMContentLoaded', () => {
     updateClearVisibility();
     updateCartCount();
     updateActiveFilterChips();
+    
+    // Загружаем части после проверки роли
     fetchParts();
 
     // Filters init

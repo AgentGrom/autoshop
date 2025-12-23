@@ -21,7 +21,7 @@ from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
 from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum, PartCategory, PartSpecification, ManufacturerEnum
 from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
-from src.repositories.part_repo import get_categories_tree, get_specs_for_category, create_part
+from src.repositories.part_repo import get_categories_tree, get_specs_for_category, create_part, update_part
 
 router = APIRouter(prefix="/account", tags=["account"])
 templates = Jinja2Templates(directory="src/templates")
@@ -1406,4 +1406,49 @@ async def create_part_endpoint(
     except Exception as e:
         await session.rollback()
         raise HTTPException(status_code=500, detail=f"Ошибка при создании запчасти: {str(e)}")
+
+
+class UpdatePartStockRequest(BaseModel):
+    stock_count: int
+
+
+@router.patch("/api/parts/{part_id}/stock")
+async def update_part_stock(
+    part_id: int,
+    stock_data: UpdatePartStockRequest,
+    current_user: User = Depends(get_current_user_from_cookie),
+    session: AsyncSession = Depends(get_async_session)
+):
+    """Обновить количество товара на складе (только для менеджеров и администраторов)"""
+    # Проверяем права доступа
+    if current_user.role not in [UserRoleEnum.MANAGER.value, UserRoleEnum.ADMIN.value]:
+        raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль менеджера или администратора.")
+    
+    # Валидация
+    if stock_data.stock_count < 0:
+        raise HTTPException(status_code=400, detail="Количество на складе не может быть отрицательным")
+    
+    # Проверяем, что запчасть существует
+    part_result = await session.execute(
+        select(Part).where(Part.part_id == part_id)
+    )
+    part = part_result.scalar_one_or_none()
+    if not part:
+        raise HTTPException(status_code=404, detail="Запчасть не найдена")
+    
+    # Обновляем количество
+    part.stock_count = stock_data.stock_count
+    await session.commit()
+    await session.refresh(part)
+    
+    # Сброс кэша
+    from src.repositories.part_repo import clear_parts_filters_cache
+    clear_parts_filters_cache()
+    
+    return {
+        "success": True,
+        "message": "Количество товара обновлено",
+        "part_id": part.part_id,
+        "stock_count": part.stock_count
+    }
 

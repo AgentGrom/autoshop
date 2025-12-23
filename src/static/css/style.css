@@ -379,6 +379,55 @@ body {
     border-color: #0066cc;
 }
 
+.item-card.out-of-stock {
+    opacity: 0.5;
+}
+
+.item-card.out-of-stock:hover {
+    opacity: 0.7;
+}
+
+.stock-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Как у остальных .item-info */
+    gap: 6px;
+    flex-wrap: nowrap;
+}
+
+.stock-info > span {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.stock-info .stock-count-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-left: auto; /* Прижимаем к правому краю */
+}
+
+.btn-edit-stock {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 0;
+    margin-left: 4px;
+    color: #0066cc;
+    opacity: 0.7;
+    transition: opacity 0.2s, transform 0.2s;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.btn-edit-stock:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
 .item-title {
     color: #0066cc;
     margin-bottom: 6px;

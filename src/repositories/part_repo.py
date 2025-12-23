@@ -408,11 +408,19 @@ async def search_and_filter_parts(
     if conditions:
         stmt = stmt.where(and_(*conditions))
 
+    # Сортировка: сначала товары с stock_count > 0, потом с stock_count = 0
+    from sqlalchemy import case
+    stock_priority = case(
+        (Part.stock_count > 0, 0),
+        else_=1
+    )
+    
     stmt = (
         stmt
         .options(selectinload(Part.category))
         .options(selectinload(Part.specifications))
         .options(selectinload(Part.images))
+        .order_by(stock_priority.asc(), Part.part_id.desc())
         .limit(limit)
         .offset(offset)
     )
