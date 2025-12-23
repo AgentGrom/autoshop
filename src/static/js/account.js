@@ -3409,9 +3409,10 @@ async function handleAdminSearch() {
         document.getElementById('admin-user-phone').value = user.phone_number || '';
         document.getElementById('admin-user-email-verified').value = user.email_verified ? 'true' : 'false';
         document.getElementById('admin-user-phone-verified').value = user.phone_verified ? 'true' : 'false';
-        document.getElementById('admin-user-role').value = user.role;
-        document.getElementById('admin-user-status').value = user.status;
-        document.getElementById('admin-user-action').value = '';
+                document.getElementById('admin-user-role').value = user.role;
+                document.getElementById('admin-user-status').value = user.status;
+                document.getElementById('admin-user-password').value = ''; // Очищаем поле пароля
+                document.getElementById('admin-user-action').value = '';
         
         formDiv.style.display = 'block';
         messageDiv.style.display = 'none';
@@ -3464,6 +3465,8 @@ async function handleAdminSave() {
             showAdminMessage(err.message || 'Ошибка удаления пользователя', 'error');
         }
     } else if (action === 'update') {
+        const passwordInput = document.getElementById('admin-user-password').value.trim();
+        
         const updateData = {
             email: document.getElementById('admin-user-email').value.trim(),
             phone_number: document.getElementById('admin-user-phone').value.trim() || null,
@@ -3472,6 +3475,15 @@ async function handleAdminSave() {
             role: document.getElementById('admin-user-role').value,
             status: document.getElementById('admin-user-status').value
         };
+        
+        // Добавляем пароль только если он указан
+        if (passwordInput) {
+            if (passwordInput.length < 6) {
+                showAdminMessage('Пароль должен содержать минимум 6 символов', 'error');
+                return;
+            }
+            updateData.new_password = passwordInput;
+        }
         
         if (!updateData.email) {
             showAdminMessage('Email не может быть пустым', 'error');
@@ -3508,6 +3520,10 @@ async function handleAdminSave() {
 function handleAdminCancel() {
     document.getElementById('admin-user-form').style.display = 'none';
     document.getElementById('admin-search-query').value = '';
+    const passwordField = document.getElementById('admin-user-password');
+    if (passwordField) {
+        passwordField.value = ''; // Очищаем поле пароля
+    }
     document.getElementById('admin-message').style.display = 'none';
     currentAdminUser = null;
 }

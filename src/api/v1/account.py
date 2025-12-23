@@ -1550,6 +1550,7 @@ class UpdateUserRequest(BaseModel):
     phone_verified: Optional[bool] = None
     role: Optional[str] = None
     status: Optional[str] = None
+    new_password: Optional[str] = None
 
 
 @router.put("/api/admin/update-user/{user_id}")
@@ -1598,6 +1599,13 @@ async def update_user(
             user.status = UserStatusEnum(update_data.status).value
         except ValueError:
             raise HTTPException(status_code=400, detail="Неверное значение статуса")
+    
+    # Изменение пароля администратором
+    if update_data.new_password is not None:
+        if len(update_data.new_password) < 6:
+            raise HTTPException(status_code=400, detail="Пароль должен содержать минимум 6 символов")
+        # Используем функцию change_user_password для хеширования пароля
+        await change_user_password(session, user_id, update_data.new_password)
     
     await session.commit()
     await session.refresh(user)

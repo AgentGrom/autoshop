@@ -65,28 +65,42 @@ function renderPartDetails() {
     descEl.textContent = partData.description || '';
 
     const addBtn = document.getElementById('add-to-cart-btn');
-    addBtn.addEventListener('click', async () => {
-        const oldText = addBtn.textContent;
-        addBtn.disabled = true;
-        addBtn.textContent = 'Добавление...';
-        
-        try {
-            const success = await addToCart(partData.part_id);
-            if (success) {
-                addBtn.textContent = 'Добавлено';
-                setTimeout(() => {
+    if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+            const oldText = addBtn.textContent;
+            addBtn.disabled = true;
+            addBtn.textContent = 'Добавление...';
+            
+            try {
+                // Используем глобальную функцию window.addToCart из cart_utils.js
+                if (typeof window.addToCart === 'function') {
+                    const success = await window.addToCart(partData.part_id, 1);
+                    if (success) {
+                        addBtn.textContent = 'Добавлено';
+                        setTimeout(() => {
+                            addBtn.textContent = oldText;
+                            addBtn.disabled = false;
+                        }, 800);
+                    } else {
+                        addBtn.textContent = oldText;
+                        addBtn.disabled = false;
+                    }
+                } else {
+                    // Если функция не загружена, показываем сообщение
+                    if (confirm('Для добавления товара в корзину необходимо войти в аккаунт. Перейти на страницу входа?')) {
+                        window.location.href = '/api/auth/login';
+                    }
                     addBtn.textContent = oldText;
                     addBtn.disabled = false;
-                }, 800);
-            } else {
+                }
+            } catch (err) {
+                console.error('Ошибка добавления в корзину:', err);
+                alert('Ошибка добавления товара в корзину');
                 addBtn.textContent = oldText;
                 addBtn.disabled = false;
             }
-        } catch (err) {
-            addBtn.textContent = oldText;
-            addBtn.disabled = false;
-        }
-    });
+        });
+    }
 
     renderSpecifications();
 }
@@ -299,18 +313,7 @@ function renderSpecifications() {
     `).join('');
 }
 
-async function addToCart(partId) {
-    // Используем универсальную функцию из cart_utils.js
-    if (typeof window.addToCart === 'function') {
-        const success = await window.addToCart(partId, 1);
-        if (success) {
-            alert('Добавлено в корзину');
-        }
-        // Если success === false, функция уже показала сообщение о необходимости авторизации
-    } else {
-        alert('Для добавления товара в корзину необходимо войти в аккаунт');
-    }
-}
+// Функция addToCart удалена - используем напрямую window.addToCart из cart_utils.js
 
 function formatPrice(price) {
     return new Intl.NumberFormat('ru-RU').format(price);
