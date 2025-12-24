@@ -20,12 +20,24 @@ except ImportError:
 from src.database.database import get_async_session
 from src.auth.jwt import get_current_user_from_cookie
 from src.database.models import User, Order, OrderItem, CarOrder, Part, Car, CarTrim, PickupPoint, UserAddress, UserRoleEnum, UserStatusEnum, OrderStatusEnum, Image, ConditionEnum, ColorEnum, CarBrandEnum, FuelTypeEnum, TransmissionEnum, DriveTypeEnum, BodyTypeEnum, PartCategory, PartSpecification, ManufacturerEnum
-from src.repositories.user_repo import update_user, change_user_password, get_user_by_id
+from src.repositories.user_repo import update_user as update_user_in_repo, change_user_password, get_user_by_id
 from src.repositories.part_repo import get_categories_tree, get_specs_for_category, create_part, update_part
 from src.repositories.user_repo import get_user_by_id, get_user_by_email
 
 router = APIRouter(prefix="/account", tags=["account"])
 templates = Jinja2Templates(directory="src/templates")
+
+
+def get_user_role_safe(user) -> str:
+    """Безопасно получает роль пользователя (обрабатывает как объект User, так и dict)"""
+    if isinstance(user, dict):
+        return user.get("role", "")
+    # Получаем role из объекта User
+    role = user.role
+    # Если role - это enum, получаем его значение
+    if hasattr(role, 'value'):
+        return role.value
+    return str(role) if role else ""
 
 
 @router.get("/")
@@ -189,8 +201,14 @@ async def update_profile(
     session: AsyncSession = Depends(get_async_session)
 ):
     """Обновить данные профиля пользователя"""
+    # Получаем user_id безопасно (может быть объект User или dict)
+    if isinstance(current_user, dict):
+        user_id = current_user.get("user_id")
+    else:
+        user_id = current_user.user_id
+    
     # Получаем актуальные данные пользователя из БД
-    user = await get_user_by_id(session, current_user.user_id)
+    user = await get_user_by_id(session, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="Пользователь не найден")
     
@@ -261,7 +279,7 @@ async def update_profile(
     
     # Применяем обновления
     if update_dict:
-        updated_user = await update_user(session, current_user.user_id, update_dict)
+        updated_user = await update_user_in_repo(session, user_id, update_dict)
         if not updated_user:
             raise HTTPException(status_code=500, detail="Ошибка обновления профиля")
     
@@ -1513,7 +1531,8 @@ async def search_user(
 ):
     """Поиск пользователя по ID или email (только для администраторов)"""
     # Проверяем права доступа
-    if current_user.role != UserRoleEnum.ADMIN.value:
+    user_role = get_user_role_safe(current_user)
+    if user_role != UserRoleEnum.ADMIN.value:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
     
     # Пытаемся найти по ID (если query - число)
@@ -1562,7 +1581,20 @@ async def update_user(
 ):
     """Обновить данные пользователя (только для администраторов)"""
     # Проверяем права доступа
-    if current_user.role != UserRoleEnum.ADMIN.value:
+    # Получаем user_id безопасно (может быть объект User или dict)
+    if isinstance(current_user, dict):
+        admin_user_id = current_user.get("user_id")
+    else:
+        admin_user_id = current_user.user_id
+    
+    # Получаем актуальные данные пользователя из БД для проверки роли
+    admin_user = await get_user_by_id(session, admin_user_id)
+    if not admin_user:
+        raise HTTPException(status_code=404, detail="Пользователь не найден")
+    
+    # Безопасный доступ к role (может быть enum или строка)
+    user_role = get_user_role_safe(admin_user)
+    if user_role != UserRoleEnum.ADMIN.value:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
     
     # Получаем пользователя
@@ -1633,7 +1665,8 @@ async def delete_user(
 ):
     """Удалить пользователя (только для администраторов)"""
     # Проверяем права доступа
-    if current_user.role != UserRoleEnum.ADMIN.value:
+    user_role = get_user_role_safe(current_user)
+    if user_role != UserRoleEnum.ADMIN.value:
         raise HTTPException(status_code=403, detail="Доступ запрещен. Требуется роль администратора.")
     
     # Нельзя удалить самого себя
